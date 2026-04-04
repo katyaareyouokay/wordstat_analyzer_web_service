@@ -1,9 +1,9 @@
 import os
 import requests
-from dotenv import dotenv_values, load_dotenv
+from dotenv import load_dotenv
 from typing import Optional, List, Dict, Any
 import time
-from app.logger import get_logger
+from logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -84,11 +84,10 @@ class YandexWordstatConnector:
         if regions:
             json_data["regions"] = regions
         if devices:
-            json_data["devices"] = devices
-        request = self._make_request(
+            json_data["devices"] = devices     
+        return self._make_request(
             "POST", "/v1/topRequests", json_data=json_data
         )
-        return request
 
     def get_dynamics(
         self,
@@ -110,7 +109,27 @@ class YandexWordstatConnector:
             json_data["regions"] = regions
         if devices:
             json_data["devices"] = devices
-        return self._make_request("POST", "/v1/dynamics", json_data=json_data)
+        return self._make_request(
+            "POST", "/v1/dynamics", json_data=json_data
+        )
+
+    def get_regions_distribution(
+        self,
+        phrase: str,
+        region_type: str = "all",
+        devices: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        json_data = {
+            "phrase": phrase,
+            "regionType": region_type,
+        }
+
+        if devices:
+            json_data["devices"] = devices
+
+        return self._make_request(
+            "POST", "/v1/regions", json_data=json_data
+        )
 
     def get_top_requests_batch(
         self,
@@ -164,6 +183,33 @@ class YandexWordstatConnector:
             time.sleep(pause_seconds)
         return results
 
+    def get_regions_distribution_batch(
+        self,
+        phrases: List[str],
+        region_type: str = "all",
+        devices: Optional[List[str]] = None,
+        pause_seconds: float = 1.0,
+    ) -> Dict[str, Dict[str, Any]]:
+        if len(phrases) > MAX_REQUESTS_PER_RUN:
+            raise ValueError(f"превышен максимум {MAX_REQUESTS_PER_RUN}!")
+
+        results = {}
+
+        for phrase in phrases:
+            logger.info(f"запрашиваю распределение по регионам: {phrase}")
+            try:
+                result = self.get_regions_distribution(
+                    phrase=phrase,
+                    region_type=region_type,
+                    devices=devices,  # ← как есть
+                )
+                results[phrase] = result
+            except Exception as e:
+                results[phrase] = {"ошибка": str(e)}
+
+            time.sleep(pause_seconds)
+        return results
+
     def phrases_to_list(self, phrases_str: str) -> List[str]:
         phrases = []
         for line in phrases_str.splitlines():
@@ -180,7 +226,7 @@ if __name__ == "__main__":
     TOKEN = os.getenv("YANDEX_WORDSTAT_TOKEN")
     if not TOKEN:
         raise ValueError(
-            "YANDEX_WORDSTAT_TOKEN не найден. Проверьте .env или передачу переменной.")
+            "YANDEX_WORDSTAT_TOKEN не найден")
 
     client = YandexWordstatConnector(token=TOKEN)
 
@@ -191,20 +237,31 @@ if __name__ == "__main__":
     raw_input = "купить телефон, пицца москва\nманикюр на дому"
     phrases = client.phrases_to_list(raw_input)
     logger.info(f"Введенные фразы: {phrases}")
-
+    
     # пример запроса топов
     result1 = client.get_top_requests_batch(
-        phrases=phrases, regions=[213], devices=["phone", "desktop"]
+        phrases=phrases,
+        regions=[213, 21624, 216],
+        devices=["phone", "desktop"]
     )
     logger.info(f"Результат выполнения запросов топов: {result1}")
-
+    
     # пример запроса динамики
     result2 = client.get_dynamics_batch(
         phrases=phrases,
         period="weekly",
         from_date="2025-05-05",
-        regions=[2],
-        devices=["desktop"],
+        regions=[213, 21624, 216],
+        devices=["desktop", "phone"],
     )
     logger.info(f"Результат выполнения запросов динамики: {result2}")
+
+    # пример запроса распределения по регионам
+    result3 = client.get_regions_distribution_batch(
+        phrases=phrases,
+        region_type="cities",  # или "all", "regions"
+        devices=["desktop", "phone"],
+    )
+
+    logger.info(f"Результат распределения по регионам: {result3}")
     pass
