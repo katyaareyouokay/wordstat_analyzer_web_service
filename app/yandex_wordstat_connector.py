@@ -1,8 +1,9 @@
+import os
 import requests
-from dotenv import dotenv_values
+from dotenv import dotenv_values, load_dotenv
 from typing import Optional, List, Dict, Any
 import time
-from logger import get_logger
+from app.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -174,8 +175,13 @@ class YandexWordstatConnector:
 
 
 if __name__ == "__main__":
-    config = dotenv_values(".env")
-    TOKEN = config["YANDEX_WORDSTAT_TOKEN"]
+    load_dotenv()
+
+    TOKEN = os.getenv("YANDEX_WORDSTAT_TOKEN")
+    if not TOKEN:
+        raise ValueError(
+            "YANDEX_WORDSTAT_TOKEN не найден. Проверьте .env или передачу переменной.")
+
     client = YandexWordstatConnector(token=TOKEN)
 
     valid_regions = client.get_regions()
@@ -188,7 +194,7 @@ if __name__ == "__main__":
 
     # пример запроса топов
     result1 = client.get_top_requests_batch(
-        phrases=phrases, regions=[213], devices=["phone, desktop"]
+        phrases=phrases, regions=[213], devices=["phone", "desktop"]
     )
     logger.info(f"Результат выполнения запросов топов: {result1}")
 
