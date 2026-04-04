@@ -6,7 +6,7 @@ from app.core.config import settings
 engine = create_async_engine(
     settings.DATABASE_URL,
     pool_pre_ping=True,
-    echo=False # Поставьте True, если захотите видеть SQL-запросы в консоли
+    echo=False
 )
 
 # Фабрика сессий
@@ -16,7 +16,7 @@ AsyncSessionLocal = async_sessionmaker(
     expire_on_commit=False
 )
 
-# Базовый класс для моделей (от него будем наследовать User и RequestHistory)
+# Базовый класс для моделей
 class Base(DeclarativeBase):
     pass
 
