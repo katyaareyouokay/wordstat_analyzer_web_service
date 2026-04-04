@@ -32,11 +32,12 @@ async def save_search_result(
     await db.flush()  # Получаем id для связи с items
 
     # 3. Сохраняем вложенные элементы (items)
-    items = yandex_data.get("items", [])
+    items = yandex_data.get("topRequests", [])
+
     for item in items:
         new_item = TopRequestItem(
             top_request_id=db_top_request.id,
-            phrase=item.get("text"),
+            phrase=item.get("phrase"),
             count=item.get("count", 0)
         )
         db.add(new_item)
