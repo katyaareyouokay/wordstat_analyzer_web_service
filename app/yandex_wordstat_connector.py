@@ -136,7 +136,7 @@ class YandexWordstatConnector:
         phrases: List[str],
         regions: Optional[List[int]] = None,
         devices: Optional[List[str]] = None,
-        pause_seconds: float = 1.0,
+        pause_seconds: float = 0.5,
     ) -> Dict[str, Dict[str, Any]]:
         if len(phrases) > MAX_REQUESTS_PER_RUN:
             raise ValueError(f"превышен максимум {MAX_REQUESTS_PER_RUN}!")
@@ -161,7 +161,7 @@ class YandexWordstatConnector:
         to_date: Optional[str] = None,
         regions: Optional[List[int]] = None,
         devices: Optional[List[str]] = None,
-        pause_seconds: float = 1.0,
+        pause_seconds: float = 0.5,
     ) -> Dict[str, Dict[str, Any]]:
         if len(phrases) > MAX_REQUESTS_PER_RUN:
             raise ValueError(f"превышен максимум {MAX_REQUESTS_PER_RUN}!")
@@ -188,7 +188,7 @@ class YandexWordstatConnector:
         phrases: List[str],
         region_type: str = "all",
         devices: Optional[List[str]] = None,
-        pause_seconds: float = 1.0,
+        pause_seconds: float = 0.5,
     ) -> Dict[str, Dict[str, Any]]:
         if len(phrases) > MAX_REQUESTS_PER_RUN:
             raise ValueError(f"превышен максимум {MAX_REQUESTS_PER_RUN}!")
@@ -255,7 +255,7 @@ if __name__ == "__main__":
         devices=["desktop", "phone"],
     )
     logger.info(f"Результат выполнения запросов динамики: {result2}")
-
+    
     # пример запроса распределения по регионам
     result3 = client.get_regions_distribution_batch(
         phrases=phrases,
@@ -264,4 +264,5 @@ if __name__ == "__main__":
     )
 
     logger.info(f"Результат распределения по регионам: {result3}")
+    
     pass
