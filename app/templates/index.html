@@ -84,6 +84,13 @@
                 </div>
                 <div class="settings-area">
                     <div class="input-field">
+                        <label for="query-type">Тип запроса</label>
+                        <select id="query-type" class="full-width">
+                            <option value="top">Топ запросов</option>
+                            <option value="history">Динамика запросов</option>
+                        </select>
+                    </div>
+                    <div class="input-field">
                         <label>Регион поиска</label>
                         <select>
                             <option>Россия (вся)</option>
@@ -106,7 +113,7 @@
                         <label>Период данных</label>
                         <input type="month">
                     </div>
-                    <button class="btn-primary full-width" style="margin-top: 20px;">Запустить</button>
+                    <button class="btn-primary full-width" style="margin-top: 20px;" onclick="runAnalysis()">Запустить</button>
                 </div>
             </div>
         </section>
@@ -139,7 +146,39 @@
                 </table>
             </div>
         </section>
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
+        <section id="results" class="page">
+            <div class="container">
+                <div class="card results-card">
+                    <div class="results-header">
+                        <h2 id="results-title">Анализ интентов</h2>
+                        <div class="export-buttons">
+                            <button class="btn-table">Excel</button>
+                        </div>
+                    </div>
+
+                    <div class="chart-container">
+                        <canvas id="mainChart"></canvas>
+                    </div>
+
+                    <div class="table-section" style="margin-top: 40px;">
+                        <h3>Список фраз по категориям</h3>
+                        <table class="custom-table" id="phrasesTable">
+                            <thead>
+                                <tr>
+                                    <th>Фраза</th>
+                                    <th>Тип намерения</th>
+                                    <th>Частотность</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
     </main>
 
     <script src="script.js"></script>
