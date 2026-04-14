@@ -2,9 +2,9 @@ services:
   db:
     image: postgres:15
     environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: slovarik_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 2339
+      POSTGRES_DB: wordstat_analyzer
     ports:
       - "5432:5432"
     volumes:
@@ -22,13 +22,14 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=postgresql+asyncpg://user:password@db:5432/slovarik_db
+      - DATABASE_URL=postgresql+asyncpg://postgres:2339@db:5432/wordstat_analyzer
       - REDIS_URL=redis://redis:6379/0
     depends_on:
       - db
       - redis
     volumes:
       - .:/app  # Синхронизируем корень проекта с папкой /app в контейнере для hot-reload
+    entrypoint: /app/entrypoint.sh
 
 volumes:
   postgres_data:
