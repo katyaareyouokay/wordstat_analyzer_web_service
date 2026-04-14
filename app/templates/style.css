@@ -401,3 +401,92 @@ textarea {
 #wordstat-table tr:nth-child(even) {
     background-color: #f9f9f9; /* Зебра */
 }
+
+/* Контейнер для заголовка и кнопки в одну строку */
+.results-action-bar {
+    display: flex;
+    justify-content: space-between; /* Распределяет элементы по краям */
+    align-items: center;            /* Центрирует их по вертикали */
+    margin-bottom: 20px;
+    padding: 10px 0;
+    border-bottom: 1px solid #eee;  /* Тонкая линия для разделения */
+}
+
+/* Стили для кнопки скачивания */
+.btn-icon-excel {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    background-color: #217346; /* Фирменный цвет Excel */
+    border: none;
+    transition: background 0.3s ease;
+}
+
+.btn-icon-excel:hover {
+    background-color: #1a5c38;
+}
+
+.btn-icon-excel .icon {
+    font-size: 1.2rem;
+}
+
+/* Сама таблица */
+.custom-table {
+    width: 100%;
+    border-collapse: separate; /* ОБЯЗАТЕЛЬНО для закруглений */
+    border-spacing: 0 8px;      /* Создает отступы между строками */
+    margin-top: 10px;
+}
+
+/* Стили для всех ячеек */
+.custom-table th, 
+.custom-table td {
+    padding: 12px 15px;
+    text-align: left;
+    background-color: #fff;    /* Фон ячейки */
+}
+
+/* Заголовки (без фона или с особым стилем) */
+.custom-table th {
+    background-color: transparent;
+    font-weight: 600;
+    color: #666;
+    border: none;
+}
+
+/* Закругляем левый край первой ячейки в строке */
+.custom-table td:first-child {
+    border-radius: 10px 0 0 10px;
+}
+
+/* Закругляем правый край последней ячейки в строке */
+.custom-table td:last-child {
+    border-radius: 0 10px 10px 0;
+}
+
+/* Добавим легкую тень, чтобы строки "парили" */
+.custom-table tbody tr {
+    transition: transform 0.2s ease;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
+/* Эффект при наведении */
+.custom-table tbody tr:hover {
+    transform: scale(1.01);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
+.results-summary {
+    background: #ffffff;
+    border-left: 5px solid #3a86ff;
+    padding: 15px 20px;
+    border-radius: 10px; /* Твои любимые закругления */
+    margin-bottom: 25px;
+    box-shadow: 0 4px 12px rgba(58, 134, 255, 0.1);
+    font-size: 1.1rem;
+}
+
+#stats-value {
+    font-weight: 800;
+    font-family: 'Montserrat', sans-serif;
+}

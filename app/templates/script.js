@@ -1,3 +1,4 @@
+
 function showPage(pageId) {
     document.querySelectorAll('.page').forEach(page => {
         page.classList.remove('active');
@@ -33,26 +34,27 @@ function toggleDevice(element) {
 }
 
 async function runAnalysis() {
-    const query = document.getElementById('query-input').value;
-    const type = document.getElementById('query-type').value; // 'top', 'history' или 'regions'
-    
-    if (!query) {
-        alert("Сначала введите запрос!");
-        return;
-    }
-
-    // Собираем устройства (чипсы)
-    // const activeDevices = Array.from(document.querySelectorAll('.device-chip.active'))
-    //                            .map(chip => chip.dataset.device);
-
     try {
-        if (type === 'top') {
-            // ВАРИАНТ 1: ТОП ЗАПРОСОВ
-            console.log("Запускаем поиск топа запросов...");
-            await getTopRequests(query); // Передаем фразу в функцию
-            
-        } 
+        // 1. Считываем значение в переменную 'phrase'
+        const phrase = document.getElementById('query-input').value; 
+        const type = document.getElementById('query-type').value;
 
+        if (!phrase) {
+            alert("Введите запрос!");
+            return;
+        }
+
+        console.log(`Запуск: ${type} для ${phrase}`);
+
+        if (type === 'top') {
+            // 2. Передаем именно 'phrase'
+            await getTopRequests(phrase); 
+        } else if (type === 'regions') {
+            const regionType = document.getElementById('region-type-select').value;
+            // 3. И здесь 'phrase'
+            await getRegionsAnalysis(phrase, regionType); 
+
+        }
     } catch (error) {
         console.error("Ошибка при выполнении анализа:", error);
     }
@@ -83,17 +85,30 @@ async function getTopRequests(phrase) {
 
         const result = await response.json();
 
-        // Проверяем статус, который мы прописали в Python
         if (result.status === "success") {
+            // 1. Берем Total Count напрямую из JSON
+            const total = result.data.totalCount; 
+            
+            // 2. Показываем блок статистики
+            const statsBlock = document.getElementById('stats-summary');
+            const statsValue = document.getElementById('stats-value');
+            if (statsBlock && statsValue) {
+                statsValue.innerText = total.toLocaleString(); // Красивое число с пробелами
+                statsBlock.style.display = 'block';
+            }
             const allItems = result.data.topRequests;
 
-            // 1. Рисуем пузырьки по ВСЕМ данным (их может быть 2000)
+            // 1. Управляем видимостью блоков
+            document.getElementById('chart-section').style.display = 'block';
+            
+            // 2. Обновляем заголовки страницы
+            document.getElementById('results-main-title').innerText = `Результаты поиска по запросу: "${phrase}"`;
+
+            // 3. ПЕРЕРИСОВЫВАЕМ структуру таблицы под ТОП
+            renderTopTableStructure(); 
+            
             renderBubbleChart(allItems);
-
-            // 2. Рисуем таблицу по первым 20
-            renderTable(allItems.slice(0, 20));
-
-            // 3. Переключаем страницу
+            renderTopTableData(allItems.slice(0, 20)); 
             showPage('results');
         } else {
             console.error("Ошибка бэкенда:", result.error);
@@ -287,3 +302,149 @@ function renderBubbleChart(allPhrases) {
         }
     });
 }
+
+async function registerUser() {
+    // 1. Собираем данные из инпутов
+    const fullName = document.getElementById('reg-fullname').value;
+    const login = document.getElementById('reg-login').value;
+    const password = document.getElementById('reg-password').value;
+
+    // Валидация на фронте
+    if (!fullName || !login || !password) {
+        alert("Пожалуйста, заполните все поля");
+        return;
+    }
+
+    // 2. Формируем объект согласно твоей схеме
+    const userData = {
+        full_name: fullName,
+        login: login,
+        password: password,
+        role_id: 1 // По умолчанию, как ты и просила
+    };
+
+    try {
+        const response = await fetch('http://localhost:8000/auth/register', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(userData)
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            alert("Регистрация успешна! Теперь войдите в аккаунт.");
+            showPage('login'); // Перекидываем на страницу входа
+        } else {
+            // Выводим ошибку от FastAPI (например, если логин занят)
+            alert("Ошибка регистрации: " + (result.detail || "что-то пошло не так"));
+        }
+    } catch (error) {
+        console.error("Ошибка при регистрации:", error);
+        alert("Не удалось связаться с сервером");
+    }
+}
+
+
+// Показываем/скрываем настройки детализации
+function toggleRegionSettings() {
+    const type = document.getElementById('query-type').value;
+    const container = document.getElementById('region-detail-container');
+    container.style.display = (type === 'regions') ? 'block' : 'none';
+}
+async function getRegionsAnalysis(phrase, regionType) {
+    const token = localStorage.getItem('token');
+    const statsBlock = document.getElementById('stats-summary');
+    if (statsBlock) statsBlock.style.display = 'none';
+    // Сразу настраиваем внешний вид страницы результатов
+    document.getElementById('chart-section').style.display = 'none';
+    document.getElementById('results-main-title').innerText = `Результаты по запросу: "${phrase}" (${regionType})`;
+
+    try {
+        const response = await fetch('http://localhost:8000/wordstat/regions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                phrase: phrase,
+                region_type: regionType // Берём то, что выбрали в начале
+            })
+        });
+
+        const result = await response.json();
+
+        if (response.ok && result.status === "success") {
+            renderRegionsTableContent(result.data.regions.slice(0, 20));
+            showPage('results');
+        } else {
+            alert("Ошибка: " + (result.detail || result.error));
+        }
+    } catch (error) {
+        console.error("Ошибка:", error);
+    }
+}
+
+function renderRegionsTableContent(regions) {
+    const header = document.getElementById('table-header');
+    const body = document.getElementById('table-body');
+
+    header.innerHTML = `
+        <tr>
+            <th>ID Региона</th>
+            <th>Количество</th>
+            <th>Доля</th>
+            <th>Affinity Index</th>
+        </tr>
+    `;
+
+    body.innerHTML = regions.map(reg => `
+        <tr>
+            <td><strong>${reg.regionId}</strong></td>
+            <td>${reg.count.toLocaleString()}</td>
+            <td>${(reg.share * 100).toFixed(2)}%</td>
+            <td>${reg.affinityIndex.toFixed(1)}</td>
+        </tr>
+    `).join('');
+}
+
+function renderTopTableData(items) {
+    const body = document.getElementById('table-body');
+    
+    body.innerHTML = items.map(item => `
+        <tr>
+            <td>${item.phrase}</td>
+            <td>${item.count.toLocaleString()}</td>
+        </tr>
+    `).join('');
+}
+
+// И не забудь поправить функцию заголовков (если она у тебя отдельная)
+function renderTopTableStructure() {
+    const header = document.getElementById('table-header');
+    header.innerHTML = `
+        <tr>
+            <th>Запрос (Phrase)</th>
+            <th>Количество (Count)</th>
+        </tr>
+    `;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const queryTypeSelect = document.getElementById('query-type');
+    const regionDetailsBlock = document.getElementById('region-details-block');
+
+    if (queryTypeSelect && regionDetailsBlock) {
+        queryTypeSelect.addEventListener('change', function() {
+            // Если выбраны регионы — показываем блок, иначе скрываем
+            if (this.value === 'regions') {
+                regionDetailsBlock.style.display = 'block';
+            } else {
+                regionDetailsBlock.style.display = 'none';
+            }
+        });
+    }
+});

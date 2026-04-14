@@ -58,17 +58,17 @@
                 <h2>Регистрация</h2>
                 <div class="input-field">
                     <label>Имя пользователя</label>
-                    <input type="text" placeholder="Иван Иванов">
+                    <input type="text" id="reg-fullname" placeholder="Иван Иванов">
                 </div>
                 <div class="input-field">
-                    <label>Email</label>
-                    <input type="email" placeholder="test@test.ru">
+                    <label>Логин (Email)</label>
+                    <input type="email" id="reg-login" placeholder="test@test.ru">
                 </div>
                 <div class="input-field">
                     <label>Пароль</label>
-                    <input type="password" placeholder="Минимум 8 символов">
+                    <input type="password" id="reg-password" placeholder="Минимум 8 символов">
                 </div>
-                <button class="btn-primary full-width" onclick="showPage('login')">Зарегистрироваться</button>
+                <button class="btn-primary full-width" onclick="registerUser()">Зарегистрироваться</button>
                 <p class="auth-footer">Уже есть аккаунт? <a href="#" onclick="showPage('login')">Войти</a></p>
             </div>
         </section>
@@ -91,7 +91,23 @@
                             <option value="history">Динамика запросов</option>
                             <option value="regions">Регионы</option> </select>
                     </div>
+                    <div class="input-field" id="region-details-block" style="display: none;">
+                        <label for="region-type-select">Детализация регионов</label>
+                        <select id="region-type-select" class="full-width">
+                            <option value="all">Все (All)</option>
+                            <option value="regions">Регионы (Regions)</option>
+                            <option value="cities">Города (Cities)</option>
+                        </select>
+                    </div>
                     
+                    <div id="region-detail-container" class="input-field" style="display: none;">
+                        <label for="region-type-select">Детализация</label>
+                        <select id="region-type-select" class="full-width">
+                            <option value="all">Все</option>
+                            <option value="regions">Регионы</option>
+                            <option value="cities">Города</option>
+                        </select>
+                    </div>
                     <div class="input-field">
                         <label>Тип устройств (можно несколько)</label>
                         <div class="device-selector">
@@ -142,25 +158,34 @@
 
         <section id="results" class="page">
             <div class="container">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <h2>Топ запросов Wordstat</h2>
-                    <button class="btn-primary" onclick="downloadExcel()">Скачать Excel</button>
+                <h2 id="results-main-title">Результаты анализа</h2>
+                <div id="stats-summary" class="results-summary" style="display: none;">
+                    <p id="stats-text">Общее количество: <strong id="stats-value" style="color: #3a86ff;">0</strong></p>
                 </div>
-                <h2>Карта намерений пользователей</h2>
-        
-                <div class="card" style="margin-bottom: 30px; height: 400px;">
-                    <canvas id="intentBubbleChart"></canvas>
+                <div class="results-action-bar">
+                    <h3 id="table-subtitle" style="margin: 0;"></h3>
+                    <button class="btn-primary btn-icon-excel" onclick="downloadExcel()">
+                        <span class="icon">📊</span> Скачать Excel
+                    </button>
                 </div>
-                <table id="wordstat-table">
-                    <thead>
-                        <tr>
-                            <th>Запрос (Phrase)</th>
-                            <th>Количество (Count)</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        </tbody>
-                </table>
+
+                <div id="chart-section">
+                    <h3>Карта намерений пользователей</h3>
+                    <div class="card" style="margin-bottom: 30px; height: 400px;">
+                        <canvas id="intentBubbleChart"></canvas>
+                    </div>
+                </div>
+
+                <table id="wordstat-table" class="custom-table">
+                <thead id="table-header">
+                    <tr>
+                        <th>Запрос (Phrase)</th>
+                        <th>Количество (Count)</th>
+                    </tr>
+                </thead>
+                <tbody id="table-body">
+                    </tbody>
+            </table>
             </div>
         </section>
     </main>

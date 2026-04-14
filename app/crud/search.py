@@ -126,7 +126,7 @@ async def save_regions_result(
             search_phrase_id=phrase_id,
             region_id=r_id,
             count=reg.get("count", 0),
-            share=reg.get("share", 0.0),
+            share=min(float(reg.get("share", 0.0)), 1.0),
             affinity_index=reg.get("affinityIndex")
         )
         db.add(new_item)
