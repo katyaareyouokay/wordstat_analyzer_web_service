@@ -1,3 +1,12 @@
+function toggleExtraOptions() {
+    const type = document.getElementById('query-type').value;
+    const rb = document.getElementById('region-details-block');
+    const db = document.getElementById('dynamics-details-block');
+    if (rb) rb.style.display = (type === 'regions' ? 'block' : 'none');
+    if (db) db.style.display = (type === 'dynamics' ? 'block' : 'none');
+}
+
+let lastAnalysisResults = null; // Буфер для Excel
 
 function showPage(pageId) {
     document.querySelectorAll('.page').forEach(page => {
@@ -33,119 +42,443 @@ function toggleDevice(element) {
     }
 }
 
+document.addEventListener('DOMContentLoaded', function() {
+    const queryTypeSelect = document.getElementById('query-type');
+    // ВАЖНО: Проверь, что в HTML у тебя именно эти ID для блоков
+    const regionBlock = document.getElementById('region-details-block');
+    const dynamicsBlock = document.getElementById('dynamics-details-block');
+
+    if (queryTypeSelect) {
+        queryTypeSelect.addEventListener('change', function() {
+            const val = this.value;
+            console.log("Выбран тип:", val); // Добавь это для проверки в консоли
+            
+            if (regionBlock) regionBlock.style.display = (val === 'regions') ? 'block' : 'none';
+            if (dynamicsBlock) dynamicsBlock.style.display = (val === 'dynamics') ? 'block' : 'none';
+        });
+    }
+});
+
+
+function updateDateConstraints() {
+    const periodType = document.getElementById('period-type-select').value;
+    const dateFromInput = document.getElementById('date-from');
+    const dateToInput = document.getElementById('date-to');
+
+    // Сброс обработчиков
+    dateFromInput.onchange = null;
+    dateToInput.onchange = null;
+
+    if (periodType === 'weekly') {
+        // Когда меняем дату "ОТ"
+        dateFromInput.onchange = function() {
+            let d = new Date(this.value);
+            if (isNaN(d)) return;
+            
+            // Если выбрали не понедельник — двигаем на ближайший Пн назад
+            let day = d.getDay();
+            let diff = d.getDate() - day + (day === 0 ? -6 : 1);
+            let monday = new Date(d.setDate(diff));
+            this.value = monday.toISOString().split('T')[0];
+            
+            // Устанавливаем минимальную дату для "ДО" (минимум 1 неделя)
+            let minSunday = new Date(monday);
+            minSunday.setDate(monday.getDate() + 6);
+            dateToInput.min = minSunday.toISOString().split('T')[0];
+            
+            // Если текущая дата "ДО" меньше нового минимума — обновляем её
+            if (!dateToInput.value || new Date(dateToInput.value) < minSunday) {
+                dateToInput.value = minSunday.toISOString().split('T')[0];
+            }
+        };
+
+        // Когда меняем дату "ДО"
+        dateToInput.onchange = function() {
+            let d = new Date(this.value);
+            if (isNaN(d)) return;
+
+            // Если выбрали не воскресенье — двигаем на ближайшее Вс вперед
+            let day = d.getDay();
+            let diff = (day === 0) ? 0 : (7 - day);
+            let sunday = new Date(d.setDate(d.getDate() + diff));
+            this.value = sunday.toISOString().split('T')[0];
+        };
+    } 
+    else if (periodType === 'daily') {
+        dateFromInput.onchange = function() {
+            let start = new Date(this.value);
+            if (isNaN(start)) return;
+            
+            let maxEnd = new Date(start);
+            maxEnd.setDate(start.getDate() + 10); // Лимит 10 дней
+            
+            dateToInput.min = this.value;
+            dateToInput.max = maxEnd.toISOString().split('T')[0];
+            
+            if (new Date(dateToInput.value) > maxEnd) {
+                dateToInput.value = maxEnd.toISOString().split('T')[0];
+            }
+        };
+    } else {
+        // Для месяцев убираем ограничения
+        dateFromInput.onchange = null;
+        dateToInput.min = "";
+        dateToInput.max = "";
+    }
+}
+
 async function runAnalysis() {
     try {
-        // 1. Считываем значение в переменную 'phrase'
-        const phrase = document.getElementById('query-input').value; 
-        const type = document.getElementById('query-type').value;
+        const phraseInput = document.getElementById('query-input');
+        const phrase = phraseInput.value; 
+        const typeSelect = document.getElementById('query-type');
+        const type = typeSelect.value;
 
-        if (!phrase) {
-            alert("Введите запрос!");
-            return;
+        // ИСПРАВЛЕНО: сверяем с реальным текстом из HTML
+        const selectedDevices = Array.from(document.querySelectorAll('.device-chip.active'))
+            .map(chip => {
+                const text = chip.innerText.toLowerCase();
+                if (text === 'десктоп') return 'desktop';
+                if (text === 'телефоны') return 'phone'; // Было 'мобильные'
+                if (text === 'планшеты') return 'tablet';
+                return null;
+            })
+            .filter(d => d !== null);
+
+        if (!phrase) { 
+            alert("Введите запрос!"); 
+            return; 
         }
 
-        console.log(`Запуск: ${type} для ${phrase}`);
+        // Перед запуском можно очистить контейнер, чтобы не видеть старых данных
+        const container = document.getElementById('results-container');
+        if (container) container.innerHTML = '<p style="text-align:center; padding:20px;">Загрузка...</p>';
 
         if (type === 'top') {
-            // 2. Передаем именно 'phrase'
-            await getTopRequests(phrase); 
+            await getTopRequests(phrase, selectedDevices); 
         } else if (type === 'regions') {
-            const regionType = document.getElementById('region-type-select').value;
-            // 3. И здесь 'phrase'
-            await getRegionsAnalysis(phrase, regionType); 
+            const rType = document.getElementById('region-type-select').value;
+            await getRegionsAnalysis(phrase, rType, selectedDevices); 
+        } else if (type === 'dynamics') {
+            const periodType = document.getElementById('period-type-select').value;
+            const dateFrom = document.getElementById('date-from').value;
+            const dateTo = document.getElementById('date-to').value;
 
+            if (!dateFrom || !dateTo) { 
+                alert("Выберите период (Даты От и До)!"); 
+                return; 
+            }
+            await getDynamicsAnalysis(phrase, periodType, dateFrom, dateTo, selectedDevices);
         }
     } catch (error) {
         console.error("Ошибка при выполнении анализа:", error);
+        alert("Произошла ошибка. Проверьте консоль браузера (F12).");
     }
 }
+function updateHistoryTable() {
+    const tbody = document.getElementById('history-tbody'); // Добавь этот ID в свой HTML <tbody>
+    if (!tbody) return;
 
-async function getTopRequests(phrase) {
-    const token = localStorage.getItem('token');
-    if (!token) {
-        alert("Сначала войдите в систему!");
-        showPage('login');
+    const history = JSON.parse(localStorage.getItem('user_history') || '[]');
+
+    if (history.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;">История пока пуста</td></tr>';
         return;
     }
 
-    const url = 'http://localhost:8000/wordstat/search';
+    tbody.innerHTML = history.map(item => `
+        <tr>
+            <td>${item.date}</td>
+            <td><strong>${item.phrase}</strong></td>
+            <td>
+                <button class="btn-table" onclick="downloadFromHistory('${item.phrase}', '${item.type}')">
+                    Скачать .XLSX
+                </button>
+            </td>
+        </tr>
+    `).join('');
+}
 
-    try {
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({
-                phrase: phrase,
-                regions: [1]
-            })
-        });
+async function getDynamicsAnalysis(inputPhrase, periodType, dateFrom, dateTo) {
+    const token = localStorage.getItem('token');
+    const phrases = inputPhrase.split(',').map(p => p.trim()).filter(p => p);
+    let allResults = {};
 
-        const result = await response.json();
+    for (const p of phrases) {
+        // Теперь мы просто доверяем датам из календаря
+        try {
+            const response = await fetch('/wordstat/dynamics', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json', 
+                    'Authorization': `Bearer ${token}` 
+                },
+                body: JSON.stringify({
+                    phrase: p,
+                    period: periodType,
+                    from_date: dateFrom,
+                    to_date: dateTo
+                })
+            });
 
-        if (result.status === "success") {
-            // 1. Берем Total Count напрямую из JSON
-            const total = result.data.totalCount; 
-            
-            // 2. Показываем блок статистики
-            const statsBlock = document.getElementById('stats-summary');
-            const statsValue = document.getElementById('stats-value');
-            if (statsBlock && statsValue) {
-                statsValue.innerText = total.toLocaleString(); // Красивое число с пробелами
-                statsBlock.style.display = 'block';
+            const result = await response.json();
+
+            if (response.ok) {
+                allResults[p] = {
+                    dynamics: result.data.dynamics || result.data.points || [],
+                    period: periodType
+                };
+            } else {
+                alert(`Ошибка для фразы "${p}": ${result.detail || 'Некорректный период'}`);
             }
-            const allItems = result.data.topRequests;
-
-            // 1. Управляем видимостью блоков
-            document.getElementById('chart-section').style.display = 'block';
-            
-            // 2. Обновляем заголовки страницы
-            document.getElementById('results-main-title').innerText = `Результаты поиска по запросу: "${phrase}"`;
-
-            // 3. ПЕРЕРИСОВЫВАЕМ структуру таблицы под ТОП
-            renderTopTableStructure(); 
-            
-            renderBubbleChart(allItems);
-            renderTopTableData(allItems.slice(0, 20)); 
-            showPage('results');
-        } else {
-            console.error("Ошибка бэкенда:", result.error);
-            alert("Ошибка: " + result.error);
+        } catch (err) {
+            console.error(`Сетевая ошибка:`, err);
         }
-    } catch (error) {
-        console.error("Критическая ошибка:", error);
+    }
+
+    if (Object.keys(allResults).length > 0) {
+        renderMultipleResults(allResults, 'dynamics');
+        showPage('results');
     }
 }
 
-function renderTable(items) {
-    const tableBody = document.querySelector('#wordstat-table tbody');
-    tableBody.innerHTML = ''; 
+// Глобальная переменная для хранения всех графиков (чтобы потом удалять/обновлять)
+let activeCharts = [];
 
-    // Берем только первые 20 элементов из массива
-    const top20 = items.slice(0, 20);
+// Функция для периодов "30 марта – 5 апреля" (как на твоем фото)
+function formatWeekPeriod(startDateStr) {
+    if (!startDateStr) return '---';
+    const start = new Date(startDateStr);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    const opt = { day: 'numeric', month: 'short' };
+    return `${start.toLocaleDateString('ru-RU', opt)} – ${end.toLocaleDateString('ru-RU', opt)} 2026`;
+}
 
-    top20.forEach(item => {
-        const row = `
-            <tr>
-                <td>${item.phrase}</td>
-                <td>${item.count.toLocaleString()}</td>
-            </tr>
-        `;
-        tableBody.insertAdjacentHTML('beforeend', row);
+// Вспомогательная функция для пакетной динамики
+
+async function renderMultipleResults(results, type) {
+    const container = document.getElementById('results-container');
+    if (!container) return;
+    container.innerHTML = ''; 
+    lastAnalysisResults = results;
+
+    if (window.activeCharts) {
+        window.activeCharts.forEach(c => c && c.destroy());
+    }
+    window.activeCharts = [];
+
+    Object.entries(results).forEach(([phrase, response], index) => {
+        const content = response.data || response;
+        const items = content.dynamics || content.points || content.regions || content.items || content.topRequests || [];
+        
+        const section = document.createElement('div');
+        section.className = 'phrase-result-block';
+        section.innerHTML = `<h2>Результаты: ${phrase}</h2>`;
+
+        if (type === 'dynamics') {
+            const chartWrapper = document.createElement('div');
+            chartWrapper.className = 'chart-wrapper'; // Используем класс из CSS
+            chartWrapper.innerHTML = `<canvas id="chart-${index}"></canvas>`;
+            section.appendChild(chartWrapper);
+        }
+
+        const table = document.createElement('table');
+        table.className = 'results-table';
+        const thead = document.createElement('thead');
+        const tbody = document.createElement('tbody');
+
+        if (type === 'top') {
+            thead.innerHTML = `<tr><th>Фраза</th><th>Запросы</th></tr>`;
+            tbody.innerHTML = items.slice(0, 50).map(i => `<tr><td>${i.phrase || '---'}</td><td>${(i.count || 0).toLocaleString()}</td></tr>`).join('');
+        } 
+        else if (type === 'dynamics') {
+            thead.innerHTML = `<tr><th>Период</th><th>Запросы</th><th>Доля %</th></tr>`;
+            tbody.innerHTML = items.map(i => {
+                const rawDate = i.date || i.point_date;
+                const periodLabel = (response.period === 'weekly') ? formatWeekPeriod(rawDate) : rawDate;
+                return `<tr><td>${periodLabel}</td><td>${(i.count || 0).toLocaleString()}</td><td>${((i.share || 0) * 100).toFixed(4)}%</td></tr>`;
+            }).join('');
+            
+            // Отрисовка графика с ОВАЛАМИ и ПРЯМОЙ ЛИНИЕЙ
+            setTimeout(() => {
+                const ctx = document.getElementById(`chart-${index}`).getContext('2d');
+                const chart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: items.map(i => i.date || i.point_date),
+                        datasets: [
+                            { 
+                                label: 'Запросы', 
+                                data: items.map(i => i.count), 
+                                borderColor: '#4e73df', 
+                                backgroundColor: '#4e73df',
+                                yAxisID: 'y', 
+                                tension: 0.3,
+                                pointStyle: 'rectRounded', // Овалы
+                                pointRadius: 5
+                            },
+                            { 
+                                label: 'Доля %', 
+                                data: items.map(i => (parseFloat(i.share) || 0) * 100), 
+                                borderColor: '#1cc88a', 
+                                backgroundColor: '#1cc88a',
+                                borderDash: [], // Прямая линия (убрали пунктир)
+                                yAxisID: 'y1', 
+                                tension: 0.3,
+                                pointStyle: 'rectRounded', // Овалы
+                                pointRadius: 5
+                            }
+                        ]
+                    },
+                    options: { 
+                        responsive: true, 
+                        maintainAspectRatio: false, 
+                        plugins: {
+                            legend: {
+                                labels: { usePointStyle: true } // Овалы в легенде сверху
+                            }
+                        },
+                        scales: { 
+                            y: { type: 'linear', position: 'left', title: { display: true, text: 'Запросы' } }, 
+                            y1: { type: 'linear', position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: 'Доля %' } } 
+                        } 
+                    }
+                });
+                window.activeCharts.push(chart);
+            }, 100);
+        }
+        else if (type === 'regions') {
+            thead.innerHTML = `<tr><th>Регион</th><th>Запросы</th><th>Доля %</th><th>Affinity</th></tr>`;
+            tbody.innerHTML = items.map(i => `
+                <tr>
+                    <td>${i.region?.label || i.label || 'Регион'}</td>
+                    <td>${(i.count || 0).toLocaleString()}</td>
+                    <td>${((i.share || 0) * 100).toFixed(2)}%</td>
+                    <td>${(i.affinity_index || 0).toFixed(0)}%</td>
+                </tr>`).join('');
+        }
+
+        table.appendChild(thead); table.appendChild(tbody);
+        section.appendChild(table);
+        container.appendChild(section);
     });
 }
 
-// Вспомогательная функция для цветов
-function getIntentColor(intent) {
-    const colors = {
-        "Инфо": 'rgba(58, 134, 255, 0.6)',
-        "Коммерц": 'rgba(96, 125, 139, 0.6)',
-        "Транзакц": 'rgba(142, 202, 230, 0.6)'
-    };
-    return colors[intent] || 'rgba(200, 200, 200, 0.6)';
+function renderSingleDynamicsChart(canvasId, items) {
+    const ctx = document.getElementById(canvasId).getContext('2d');
+    const chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: items.map(i => i.date || i.period),
+            datasets: [{
+                label: 'Запросы',
+                data: items.map(i => i.count || i.value),
+                borderColor: '#3a86ff',
+                fill: true,
+                backgroundColor: 'rgba(58, 134, 255, 0.1)'
+            }]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+    });
+    activeCharts.push(chart);
 }
+
+// Вспомогательная функция для пакетных пузырьков
+function renderSingleBubbleChart(canvasId, items) {
+    const ctx = document.getElementById(canvasId).getContext('2d');
+    // ... логика группировки интентов (как мы писали выше) ...
+    // Создаем новый Chart и пушим в activeCharts
+}
+
+function renderDoubleChart(canvasId, items, label) {
+    const ctx = document.getElementById(canvasId).getContext('2d');
+    const labels = items.map(i => i.point_date || i.date);
+    const counts = items.map(i => i.count || 0);
+    const shares = items.map(i => (i.share || 0) * 100);
+
+    const chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Запросы (шт)',
+                    data: counts,
+                    borderColor: '#4e73df',
+                    backgroundColor: 'rgba(78, 115, 223, 0.1)',
+                    yAxisID: 'y',
+                    tension: 0.3,
+                    fill: true
+                },
+                {
+                    label: 'Доля (%)',
+                    data: shares,
+                    borderColor: '#1cc88a',
+                    borderDash: [5, 5], // Пунктир
+                    yAxisID: 'y1',
+                    tension: 0.3
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: { type: 'linear', position: 'left', title: { display: true, text: 'Штук' } },
+                y1: { type: 'linear', position: 'right', title: { display: true, text: 'Процент (%)' }, grid: { drawOnChartArea: false } }
+            }
+        }
+    });
+    window.activeCharts.push(chart);
+}
+
+async function getTopRequests(inputPhrase) {
+    const token = localStorage.getItem('token');
+    const phrases = inputPhrase.split(',').map(p => p.trim()).filter(p => p);
+    let allResults = {};
+
+    for (const p of phrases) {
+        try {
+            const response = await fetch('/wordstat/search', { // ИСПРАВЛЕНО: /search
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ 
+                    phrase: p,
+                    regions: [1] // Можно добавить выбор регионов из интерфейса
+                })
+            });
+            const result = await response.json();
+            if (response.ok) { allResults[p] = result.data; }
+        } catch (err) { console.error(err); }
+    }
+    renderMultipleResults(allResults, 'top');
+    showPage('results');
+}
+
+async function getRegionsAnalysis(inputPhrase, regionType) {
+    const token = localStorage.getItem('token');
+    const phrases = inputPhrase.split(',').map(p => p.trim()).filter(p => p);
+    let allResults = {};
+
+    for (const p of phrases) {
+        try {
+            const response = await fetch('/wordstat/regions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({
+                    phrase: p,
+                    region_type: regionType
+                })
+            });
+            const result = await response.json();
+            if (response.ok) { allResults[p] = result.data; }
+        } catch (err) { console.error(err); }
+    }
+    renderMultipleResults(allResults, 'regions');
+    showPage('results');
+}
+
 
 async function loginUser() {
     const email = document.getElementById('login-email').value;
@@ -162,7 +495,7 @@ async function loginUser() {
     formData.append('password', password);
 
     try {
-        const response = await fetch('http://localhost:8000/auth/login', {
+        const response = await fetch('/auth/login', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded'
@@ -176,9 +509,10 @@ async function loginUser() {
             // Сохраняем токен
             localStorage.setItem('token', data.access_token);
             console.log("Успешный вход, токен сохранен");
-            
-            // Переключаем страницу на инструмент
+            document.getElementById('login-email').value = '';
+            document.getElementById('login-password').value = '';
             showPage('tool');
+
         } else {
             alert("Ошибка входа: " + (data.detail || "неверные данные"));
         }
@@ -188,120 +522,6 @@ async function loginUser() {
     }
 }
 
-function downloadExcel() {
-    // 1. Находим таблицу
-    const table = document.getElementById("wordstat-table");
-    
-    // 2. Превращаем HTML-таблицу в рабочую книгу Excel
-    const wb = XLSX.utils.table_to_book(table, { sheet: "Top Requests" });
-    
-    // 3. Генерируем имя файла с текущей датой
-    const date = new Date().toISOString().slice(0, 10);
-    const fileName = `wordstat_export_${date}.xlsx`;
-    
-    // 4. Инициируем скачивание
-    XLSX.writeFile(wb, fileName);
-}
-
-// Переменная для хранения инстанса чарта (чтобы удалять старый при новом поиске)
-let bubbleChartInstance = null;
-
-function renderBubbleChart(allPhrases) {
-    const ctx = document.getElementById('intentBubbleChart').getContext('2d');
-    
-    // 1. УДАЛЯЕМ СТАРЫЙ ЧАРТ (CORS/Авторизация заработала, данные летят, старые чарты нужно чистить!)
-    if (bubbleChartInstance) {
-        bubbleChartInstance.destroy();
-    }
-
-    // 2. ГРУППИРУЕМ ДАННЫЕ (Агрегируем 2000 фраз в 4 интента)
-    const groups = {
-        "Коммерческий": { x: 1, y: 0, r: 0, count: 0, phrases: [] },
-        "Информационный": { x: 2, y: 0, r: 0, count: 0, phrases: [] },
-        "Навигационный": { x: 3, y: 0, r: 0, count: 0, phrases: [] },
-        "Прочий": { x: 4, y: 0, r: 0, count: 0, phrases: [] }
-    };
-
-    allPhrases.forEach(item => {
-        if (groups[item.intent]) {
-            groups[item.intent].y += item.count; // Накапливаем частотность (Ось Y)
-            groups[item.intent].count += 1;      // Считаем количество фраз (для размера R)
-            groups[item.intent].phrases.push(item);
-        }
-    });
-
-    // 3. ФОРМИРУЕМ ДАННЫЕ ДЛЯ CHART.JS
-    // Размер пузырька (R) делаем пропорциональным количеству фраз, но с ограничением
-    const chartData = Object.keys(groups).map(intent => {
-        const group = groups[intent];
-        return {
-            label: intent,
-            data: [{
-                x: group.x, 
-                y: group.y,
-                r: Math.min(Math.max(group.count / 10, 10), 80) // Ограничиваем размер пузырька
-            }]
-        };
-    });
-
-    // 4. ОПРЕДЕЛЯЕМ ЦВЕТА
-    const colors = {
-        "Коммерческий": 'rgba(58, 134, 255, 0.7)',  // Синий
-        "Информационный": 'rgba(96, 125, 139, 0.7)', // Серый
-        "Навигационный": 'rgba(255, 193, 7, 0.7)',   // Желтый
-        "Прочий": 'rgba(200, 200, 200, 0.7)'       // Светло-серый
-    };
-
-    // 5. ИНИЦИАЛИЗИРУЕМ ЧАРТ
-    bubbleChartInstance = new Chart(ctx, {
-        type: 'bubble',
-        data: {
-            datasets: chartData.map(d => ({
-                ...d,
-                backgroundColor: colors[d.label],
-                borderColor: colors[d.label].replace('0.7', '1'),
-                borderWidth: 1
-            }))
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                x: {
-                    type: 'linear',
-                    position: 'bottom',
-                    ticks: {
-                        callback: function(value) {
-                            const labels = ['', 'Коммерческий', 'Инфо', 'Навигационный', 'Прочий'];
-                            return labels[value] || '';
-                        },
-                        stepSize: 1
-                    },
-                    min: 0,
-                    max: 5,
-                    title: { display: true, text: 'Тип намерения' }
-                },
-                y: {
-                    title: { display: true, text: 'Суммарная частотность (count)' },
-                    ticks: { callback: value => value.toLocaleString() }
-                }
-            },
-            plugins: {
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            const intent = context.dataset.label;
-                            const freq = context.raw.y.toLocaleString();
-                            const phrasesCount = groups[intent].count;
-                            return `${intent}: ${phrasesCount} фраз, Частотность: ${freq}`;
-                        }
-                    }
-                },
-                legend: { display: false } // Легенда не нужна, подписи на осях
-            }
-        }
-    });
-}
 
 async function registerUser() {
     // 1. Собираем данные из инпутов
@@ -324,13 +544,14 @@ async function registerUser() {
     };
 
     try {
-        const response = await fetch('http://localhost:8000/auth/register', {
+        const response = await fetch('/auth/register', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify(userData)
         });
+
 
         const result = await response.json();
 
@@ -348,103 +569,183 @@ async function registerUser() {
 }
 
 
-// Показываем/скрываем настройки детализации
-function toggleRegionSettings() {
-    const type = document.getElementById('query-type').value;
-    const container = document.getElementById('region-detail-container');
-    container.style.display = (type === 'regions') ? 'block' : 'none';
-}
-async function getRegionsAnalysis(phrase, regionType) {
-    const token = localStorage.getItem('token');
-    const statsBlock = document.getElementById('stats-summary');
-    if (statsBlock) statsBlock.style.display = 'none';
-    // Сразу настраиваем внешний вид страницы результатов
-    document.getElementById('chart-section').style.display = 'none';
-    document.getElementById('results-main-title').innerText = `Результаты по запросу: "${phrase}" (${regionType})`;
+function downloadExcel() {
+    if (!lastAnalysisResults || Object.keys(lastAnalysisResults).length === 0) {
+        return alert("Нет данных для выгрузки");
+    }
 
-    try {
-        const response = await fetch('http://localhost:8000/wordstat/regions', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({
-                phrase: phrase,
-                region_type: regionType // Берём то, что выбрали в начале
-            })
-        });
+    const wb = XLSX.utils.book_new();
 
-        const result = await response.json();
+    Object.entries(lastAnalysisResults).forEach(([phrase, response]) => {
+        // Учитываем вложенность (иногда данные приходят в response.data, иногда сразу в response)
+        const content = response.data || response;
+        
+        // Автоматически определяем массив данных по существующим ключам
+        const items = content.dynamics || content.points || content.regions || content.items || content.topRequests || [];
+        
+        if (items.length === 0) return;
 
-        if (response.ok && result.status === "success") {
-            renderRegionsTableContent(result.data.regions.slice(0, 20));
-            showPage('results');
-        } else {
-            alert("Ошибка: " + (result.detail || result.error));
+        // ОПРЕДЕЛЯЕМ ТИП НА ОСНОВЕ СОДЕРЖИМОГО (авто-шаблон)
+        const firstItem = items[0];
+        let dataRows = [];
+
+        if (firstItem.date || firstItem.point_date) {
+            // ШАБЛОН ДИНАМИКИ
+            dataRows = items.map(i => ({
+                "Запрос": phrase,
+                "Период": i.date || i.point_date,
+                "Число запросов": i.count,
+                "Доля %": (parseFloat(i.share || 0) * 100).toFixed(5)
+            }));
+        } 
+        else if (firstItem.regionId || firstItem.region_id || firstItem.region) {
+            // ШАБЛОН РЕГИОНОВ
+            dataRows = items.map(i => ({
+                "Запрос": phrase,
+                "Регион": i.region?.label || i.label || `ID ${i.regionId || i.region_id}`,
+                "Число запросов": i.count,
+                "Доля %": (parseFloat(i.share || 0) * 100).toFixed(4),
+                "Affinity Index": (i.affinity_index || i.affinityIndex || 0).toFixed(0) + "%"
+            }));
+        } 
+        else {
+            // ШАБЛОН ТОП ЗАПРОСОВ (по умолчанию)
+            dataRows = items.map(i => ({
+                "Основной запрос": phrase,
+                "Похожая фраза": i.phrase || "---",
+                "Число запросов": i.count
+            }));
         }
-    } catch (error) {
-        console.error("Ошибка:", error);
+
+        const ws = XLSX.utils.json_to_sheet(dataRows);
+        
+        // Настройка ширины колонок для красоты
+        const colWidths = Object.keys(dataRows[0]).map(() => ({ wch: 20 }));
+        ws['!cols'] = colWidths;
+
+        XLSX.utils.book_append_sheet(wb, ws, phrase.substring(0, 31));
+    });
+
+    const fileName = `Wordstat_${new Date().toISOString().slice(0,10)}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+}
+
+async function downloadFromHistory(phrase, type) {
+    // 1. Подменяем значение в инпуте, чтобы функции знали что искать
+    const input = document.getElementById('query-input');
+    if (input) input.value = phrase;
+
+    // 2. Эмулируем загрузку данных (без смены экрана на "Результаты")
+    try {
+        if (type === 'top') {
+            await getTopRequests(phrase);
+        } else if (type === 'regions') {
+            await getRegionsAnalysis(phrase, 'country'); // По умолчанию страны
+        } else if (type === 'dynamics') {
+            // Берем последние 3 месяца для примера
+            const to = new Date().toISOString().split('T')[0];
+            const from = new Date();
+            from.setMonth(from.getMonth() - 3);
+            await getDynamicsAnalysis(phrase, 'monthly', from.toISOString().split('T')[0], to);
+        }
+
+        // 3. Вызываем твой готовый экспорт (он возьмет данные из lastAnalysisResults)
+        downloadExcel();
+    } catch (e) {
+        alert("Не удалось восстановить данные для скачивания.");
     }
 }
 
-function renderRegionsTableContent(regions) {
-    const header = document.getElementById('table-header');
-    const body = document.getElementById('table-body');
+// Вспомогательная функция для отрисовки пузырьков в пакетном режиме
+function renderSingleBubbleChart(canvasId, allPhrases) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
 
-    header.innerHTML = `
-        <tr>
-            <th>ID Региона</th>
-            <th>Количество</th>
-            <th>Доля</th>
-            <th>Affinity Index</th>
-        </tr>
-    `;
+    // 1. ГРУППИРУЕМ ДАННЫЕ
+    const groups = {
+        "Коммерческий": { x: 1, y: 0, count: 0 },
+        "Информационный": { x: 2, y: 0, count: 0 },
+        "Навигационный": { x: 3, y: 0, count: 0 },
+        "Прочий": { x: 4, y: 0, count: 0 }
+    };
 
-    body.innerHTML = regions.map(reg => `
-        <tr>
-            <td><strong>${reg.regionId}</strong></td>
-            <td>${reg.count.toLocaleString()}</td>
-            <td>${(reg.share * 100).toFixed(2)}%</td>
-            <td>${reg.affinityIndex.toFixed(1)}</td>
-        </tr>
-    `).join('');
-}
+    allPhrases.forEach(item => {
+        // Проверка интента (приводим к эталону из объекта groups)
+        const intent = item.intent || "Прочий";
+        if (groups[intent]) {
+            groups[intent].y += (item.count || item.value || 0);
+            groups[intent].count += 1;
+        } else {
+            groups["Прочий"].y += (item.count || item.value || 0);
+            groups["Прочий"].count += 1;
+        }
+    });
 
-function renderTopTableData(items) {
-    const body = document.getElementById('table-body');
-    
-    body.innerHTML = items.map(item => `
-        <tr>
-            <td>${item.phrase}</td>
-            <td>${item.count.toLocaleString()}</td>
-        </tr>
-    `).join('');
-}
+    // 2. ФОРМИРУЕМ ДАННЫЕ ДЛЯ CHART.JS
+    const chartData = Object.keys(groups).map(intent => ({
+        label: intent,
+        data: [{
+            x: groups[intent].x, 
+            y: groups[intent].y,
+            // Размер пузырька зависит от кол-ва фраз
+            r: Math.min(Math.max(groups[intent].count / 5, 8), 40) 
+        }]
+    }));
 
-// И не забудь поправить функцию заголовков (если она у тебя отдельная)
-function renderTopTableStructure() {
-    const header = document.getElementById('table-header');
-    header.innerHTML = `
-        <tr>
-            <th>Запрос (Phrase)</th>
-            <th>Количество (Count)</th>
-        </tr>
-    `;
-}
+    const colors = {
+        "Коммерческий": 'rgba(58, 134, 255, 0.7)',
+        "Информационный": 'rgba(96, 125, 139, 0.7)',
+        "Навигационный": 'rgba(255, 193, 7, 0.7)',
+        "Прочий": 'rgba(200, 200, 200, 0.7)'
+    };
 
-document.addEventListener('DOMContentLoaded', function() {
-    const queryTypeSelect = document.getElementById('query-type');
-    const regionDetailsBlock = document.getElementById('region-details-block');
-
-    if (queryTypeSelect && regionDetailsBlock) {
-        queryTypeSelect.addEventListener('change', function() {
-            // Если выбраны регионы — показываем блок, иначе скрываем
-            if (this.value === 'regions') {
-                regionDetailsBlock.style.display = 'block';
-            } else {
-                regionDetailsBlock.style.display = 'none';
+    // 3. ИНИЦИАЛИЗИРУЕМ ЧАРТ
+    const newChart = new Chart(ctx, {
+        type: 'bubble',
+        data: {
+            datasets: chartData.map(d => ({
+                ...d,
+                backgroundColor: colors[d.label] || colors["Прочий"],
+                borderColor: (colors[d.label] || colors["Прочий"]).replace('0.7', '1'),
+                borderWidth: 1
+            }))
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: {
+                    type: 'linear',
+                    position: 'bottom',
+                    ticks: {
+                        callback: (val) => ['', 'Коммерческий', 'Инфо', 'Навигатор', 'Прочее', ''][val] || '',
+                        stepSize: 1
+                    },
+                    min: 0, max: 5
+                },
+                y: {
+                    ticks: { callback: v => v.toLocaleString() },
+                    title: { display: true, text: 'Общая частотность' }
+                }
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: (ctx) => {
+                            const g = groups[ctx.dataset.label];
+                            return `${ctx.dataset.label}: ${g.count} фраз, Сумма: ${g.y.toLocaleString()}`;
+                        }
+                    }
+                }
             }
-        });
+        }
+    });
+
+    // Сохраняем в массив для очистки при новом поиске
+    if (typeof activeCharts !== 'undefined') {
+        activeCharts.push(newChart);
     }
-});
+}
+

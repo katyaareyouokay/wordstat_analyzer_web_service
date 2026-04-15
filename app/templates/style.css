@@ -319,9 +319,8 @@ textarea {
     to { 
         opacity: 1; 
         transform: scale(1) translateY(0); 
-    }
+    } 
 }
-
 
 /* Стили для выбора устройств */
 .device-selector {
@@ -489,4 +488,106 @@ textarea {
 #stats-value {
     font-weight: 800;
     font-family: 'Montserrat', sans-serif;
+}
+
+
+/* 9. ПАКЕТНАЯ ВЫДАЧА (РЕЗУЛЬТАТЫ) */
+
+/* Контейнер для всех карточек */
+#results-container {
+    display: flex;
+    flex-direction: column;
+    gap: 40px; /* Большой отступ между разными фразами */
+    margin-top: 30px;
+}
+
+/* Карточка для одной фразы */
+.phrase-result-block {
+    background: var(--bg-card);
+    border-radius: var(--radius-xl);
+    padding: 30px;
+    box-shadow: var(--shadow-main);
+    border: 1px solid var(--border-soft);
+    animation: slideIn 0.6s var(--transition) forwards;
+}
+
+/* Заголовок фразы внутри карточки */
+.phrase-result-block h2 {
+    font-size: 1.8rem;
+    font-weight: 800;
+    color: var(--text-main);
+    margin-bottom: 25px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.phrase-result-block h2::before {
+    content: "🔎"; /* Иконка перед фразой */
+    font-size: 1.4rem;
+}
+
+/* Обертка для графиков */
+.chart-wrapper {
+    background: #f8f9fa;
+    border-radius: var(--radius-xl);
+    padding: 20px;
+    margin-bottom: 30px;
+    border: 1px solid var(--border-soft);
+    /* Chart.js требует фиксированную высоту или контейнер */
+    height: 450px; 
+    position: relative;
+}
+
+/* Кнопки управления результатами */
+.results-controls {
+    display: flex;
+    justify-content: flex-end;
+    gap: 15px;
+    margin-bottom: 30px;
+}
+
+/* Таблицы внутри блоков (переиспользуем твой стиль .custom-table) */
+.phrase-result-block .results-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0 8px;
+}
+
+/* Перебиваем стили для таблиц внутри пакета, чтобы они выглядели как твои custom-table */
+.results-table th {
+    padding: 12px 20px;
+    color: var(--text-muted);
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+}
+
+.results-table td {
+    background: #f8f9fa;
+    padding: 15px 20px;
+    border: none;
+    font-weight: 600;
+}
+
+.results-table td:first-child {
+    border-radius: 15px 0 0 15px;
+}
+
+.results-table td:last-child {
+    border-radius: 0 15px 15px 0;
+    color: var(--primary);
+    text-align: right;
+}
+
+.results-table tr:hover td {
+    background: var(--accent-light);
+    transform: scale(1.005);
+    transition: var(--transition);
+}
+
+.results-controls .btn {
+    padding: 10px 20px;
+    cursor: pointer;
+    border-radius: 8px; /* Округлим для стиля */
 }
