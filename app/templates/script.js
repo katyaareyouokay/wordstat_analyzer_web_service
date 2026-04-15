@@ -175,30 +175,114 @@ async function runAnalysis() {
         alert("Произошла ошибка. Проверьте консоль браузера (F12).");
     }
 }
-function updateHistoryTable() {
-    const tbody = document.getElementById('history-tbody'); // Добавь этот ID в свой HTML <tbody>
-    if (!tbody) return;
 
-    const history = JSON.parse(localStorage.getItem('user_history') || '[]');
 
-    if (history.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;">История пока пуста</td></tr>';
-        return;
+function showPage(pageId) {
+    // 1. Прячем все страницы
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    
+    // 2. Показываем нужную
+    const target = document.getElementById(pageId);
+    if (target) {
+        target.classList.add('active');
+        
+        // 3. Если перешли в "Историю" (в HTML это id="cabinet")
+        if (pageId === 'cabinet') {
+            loadHistory();
+        }
     }
-
-    tbody.innerHTML = history.map(item => `
-        <tr>
-            <td>${item.date}</td>
-            <td><strong>${item.phrase}</strong></td>
-            <td>
-                <button class="btn-table" onclick="downloadFromHistory('${item.phrase}', '${item.type}')">
-                    Скачать .XLSX
-                </button>
-            </td>
-        </tr>
-    `).join('');
 }
 
+// Функция загрузки истории из БД
+async function loadHistory() {
+    const tbody = document.getElementById('history-tbody');
+    if (!tbody) return;
+
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">Загрузка...</td></tr>';
+
+    try {
+        const token = localStorage.getItem('token');
+        
+        // ИСПРАВЛЕНО: Добавлен правильный префикс /wordstat вместо /api
+        const response = await fetch('/wordstat/history', { 
+            headers: { 
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            if (response.status === 401) throw new Error("Авторизуйтесь, чтобы увидеть историю");
+            if (response.status === 404) throw new Error("Эндпоинт /wordstat/history не найден на сервере");
+            throw new Error("Ошибка сервера при загрузке");
+        }
+
+        const historyData = await response.json();
+
+        if (!historyData || historyData.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">История пуста. Пора что-нибудь проанализировать!</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = historyData.map(item => {
+            // Если дата приходит строкой '2026-04-15 15:30', создаем объект даты
+            const dateObj = new Date(item.created_at);
+            const dateStr = isNaN(dateObj) ? item.created_at : dateObj.toLocaleDateString('ru-RU');
+            
+            return `
+                <tr>
+                    <td style="color: #666; white-space: nowrap;">${dateStr}</td>
+                    <td><span class="badge">${item.type}</span></td>
+                    <td style="width: 100%;"><strong>${item.phrase}</strong></td>
+                    <td style="text-align: right;">
+                        <button class="btn secondary btn-sm" onclick="downloadFromHistory('${item.id}', '${item.type}')">
+                            📥 Excel
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+    } catch (error) {
+        console.error("History Load Error:", error);
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:red; padding: 20px;">${error.message}</td></tr>`;
+    }
+}
+
+async function downloadFromHistory(id, type) {
+    const token = localStorage.getItem('token');
+    
+    try {
+        // Делаем запрос на получение файла
+        const response = await fetch(`/wordstat/history/download/${id}?type=${encodeURIComponent(type)}`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        if (!response.ok) throw new Error("Не удалось скачать файл");
+
+        // Превращаем ответ в "blob" (бинарный объект файла)
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        
+        // Создаем невидимую ссылку и кликаем по ней для скачивания
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `report_${type}_${id}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        
+        // Очистка
+        window.URL.revokeObjectURL(url);
+        a.remove();
+
+    } catch (error) {
+        console.error("Download error:", error);
+        alert("Ошибка при скачивании файла: " + error.message);
+    }
+}
 async function getDynamicsAnalysis(inputPhrase, periodType, dateFrom, dateTo) {
     const token = localStorage.getItem('token');
     const phrases = inputPhrase.split(',').map(p => p.trim()).filter(p => p);

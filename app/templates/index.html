@@ -146,6 +146,32 @@
             </div>
 
         </section>
+        <section id="cabinet" class="page">
+            <div class="tool-header">
+                <h2>История ваших запросов</h2>
+                <p>Здесь хранятся все ранее выполненные анализы</p>
+            </div>
+            
+            <div class="card">
+                <table class="results-table">
+                    <thead>
+                        <tr>
+                            <th>Дата</th>
+                            <th>Тип</th>
+                            <th>Поисковые фразы</th>
+                            <th style="text-align: right;">Действие</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history-tbody">
+                        <tr>
+                            <td colspan="4" style="text-align:center; padding:40px;">
+                                <div class="loader-simple">Загрузка истории...</div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
     </main>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="/static/script.js"></script>

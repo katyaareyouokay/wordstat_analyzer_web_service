@@ -591,3 +591,45 @@ textarea {
     cursor: pointer;
     border-radius: 8px; /* Округлим для стиля */
 }
+/* Растягиваем сам контейнер страницы, если он узкий */
+#cabinet .container {
+    max-width: 100% !important;
+    width: 100% !important;
+    padding: 0 20px;
+}
+
+/* Убираем внутренние отступы у карточки, чтобы таблица касалась краев */
+#cabinet .card {
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 20px 0;
+    border-radius: 12px;
+    overflow: hidden; /* Чтобы скруглить углы таблицы под карточку */
+}
+
+/* Настройка самой таблицы */
+.results-table {
+    width: 100% !important;
+    min-width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed; /* Критично для фиксации колонок */
+}
+
+/* Оформление строк */
+.results-table th, 
+.results-table td {
+    padding: 18px 25px !important; /* Увеличим отступы для солидности */
+    text-align: left;
+    border-bottom: 1px solid #f0f4f8;
+}
+
+
+
+/* Сделаем заголовок чуть серым для контраста */
+.results-table thead th {
+    background-color: #fafbfc;
+    color: #8898aa;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
