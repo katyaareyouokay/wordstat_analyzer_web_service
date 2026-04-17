@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 43200  # 30 дней в минутах
+    REDIS_URL: str
     YANDEX_WORDSTAT_TOKEN: str
 
     @property

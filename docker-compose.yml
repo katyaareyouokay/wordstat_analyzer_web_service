@@ -1,17 +1,25 @@
 services:
   db:
     image: postgres:15
+    container_name: wordstat_db
+    restart: always
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: BubA54MuR
-      POSTGRES_DB: wordstat_analyzer
-    # ports:
-    #   - "5433:5432"
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:7-alpine
+    container_name: wordstat_redis
     ports:
       - "6379:6379"
 
@@ -19,18 +27,21 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    container_name: wordstat_backend
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=postgresql+asyncpg://postgres:BubA54MuR@db:5432/wordstat_analyzer
-      - REDIS_URL=redis://redis:6379/0
-      - POSTGRES_HOST=db
-      - POSTGRES_PORT=5432
+      - DATABASE_URL="postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}"
+      - REDIS_URL=${REDIS_URL}
+      - POSTGRES_HOST=${POSTGRES_HOST}
+      - POSTGRES_PORT=${POSTGRES_PORT}
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
     volumes:
-      - .:/app  # Синхронизируем корень проекта с папкой /app в контейнере для hot-reload
+      - .:/app
     entrypoint: /app/entrypoint.sh
 
 volumes:

@@ -1,7 +1,6 @@
 #!/bin/bash
 set -e
 
-# Ждём, пока PostgreSQL поднимется
 echo "Waiting for PostgreSQL at $POSTGRES_HOST:$POSTGRES_PORT..."
 python << END
 import socket
@@ -20,10 +19,9 @@ while True:
 END
 echo "PostgreSQL is ready"
 
-# Создаём таблицы в БД
-echo "Создание таблиц..."
-python create_tables.py
+# Выполняем миграции
+alembic upgrade head
 
-# ЗАПУСКАЕМ СЕРВЕР ВМЕСТО СКРИПТА
+# Запускаем сервер
 echo "Запуск FastAPI сервера..."
 exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
