@@ -18,16 +18,36 @@ async def get_or_create_phrase(db: AsyncSession, phrase_text: str,
 
 
 # 1. Сохранение ТОПов
-async def save_search_result(db: AsyncSession, user_id: int, phrase_text: str,
-                             yandex_data: dict, group_id: int):
+async def save_search_result(
+        db: AsyncSession,
+        user_id: int,
+        phrase_text: str,
+        yandex_data: dict,
+        group_id: int,
+        device_ids: list[int] = None
+):
     phrase_id = await get_or_create_phrase(db, phrase_text, user_id)
 
+    # Если выбрано 'all' (4) или ничего не выбрано, то считаем, что выбраны все устройства
+    is_all = device_ids and (
+                4 in device_ids or set([1, 2, 3]).issubset(set(device_ids)))
+
+    # Присваиваем ID устройств или None
+    d1_id = 1 if (is_all or (device_ids and 1 in device_ids)) else None
+    d2_id = 2 if (is_all or (device_ids and 2 in device_ids)) else None
+    d3_id = 3 if (is_all or (device_ids and 3 in device_ids)) else None
+
+    # Передаем ID во внешние ключи (колонки с окончанием _id)
     db_top_request = TopRequest(
         group_id=group_id,
         search_phrase_id=phrase_id,
         user_id=user_id,
-        total_count=yandex_data.get("totalCount", 0)
+        total_count=yandex_data.get("totalCount", 0),
+        device1_id=d1_id,
+        device2_id=d2_id,
+        device3_id=d3_id
     )
+
     db.add(db_top_request)
     await db.flush()
 
@@ -39,6 +59,7 @@ async def save_search_result(db: AsyncSession, user_id: int, phrase_text: str,
             count=item.get("count", 0)
         )
         db.add(new_item)
+
     await db.commit()
 
 

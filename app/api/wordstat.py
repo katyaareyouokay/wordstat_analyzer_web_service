@@ -23,12 +23,24 @@ router = APIRouter()
 @router.post("/search")
 async def search_top(request: SearchRequest, db: AsyncSession = Depends(get_db),
                      current_user: User = Depends(get_current_user)):
-    data = await wordstat_service.get_top_requests(request.phrase,
-                                                   request.regions)
+
+    data = await wordstat_service.get_top_requests(
+        phrase=request.phrase,
+        regions=request.regions,
+        devices=request.devices
+    )
     if "error" in data: raise HTTPException(status_code=400, detail=data)
 
     group_id = int(time.time())
-    await save_search_result(db, current_user.id, request.phrase, data, group_id)
+    await save_search_result(
+        db,
+        current_user.id,
+        request.phrase,
+        data,
+        group_id,
+        device_ids=request.devices
+    )
+
     return {"status": "success", "group_id": group_id, "data": data}
 
 

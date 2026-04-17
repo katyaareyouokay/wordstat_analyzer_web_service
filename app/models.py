@@ -1,7 +1,7 @@
 from datetime import datetime, date
 from typing import Optional, List
 from sqlalchemy import (String, Integer, ForeignKey, DateTime, Date, Float,
-                        Text, Index, CheckConstraint)
+                        Text, Index, CheckConstraint, Boolean)
 from sqlalchemy import func
 
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -150,12 +150,26 @@ class TopRequest(Base):
         back_populates='top_requests')
     region: Mapped[Optional['Region']] = relationship(
         back_populates='top_requests')
-    device1: Mapped[Optional['Device']] = relationship(foreign_keys=[device1_id],
-                                                       back_populates='top_requests_as_device1')
-    device2: Mapped[Optional['Device']] = relationship(foreign_keys=[device2_id],
-                                                       back_populates='top_requests_as_device2')
-    device3: Mapped[Optional['Device']] = relationship(foreign_keys=[device3_id],
-                                                       back_populates='top_requests_as_device3')
+
+    device1_id: Mapped[Optional[int]] = mapped_column(ForeignKey('devices.id'),
+                                                      nullable=True)
+    device2_id: Mapped[Optional[int]] = mapped_column(ForeignKey('devices.id'),
+                                                      nullable=True)
+    device3_id: Mapped[Optional[int]] = mapped_column(ForeignKey('devices.id'),
+                                                      nullable=True)
+
+    device1: Mapped[Optional['Device']] = relationship(
+        foreign_keys=[device1_id],
+        back_populates='top_requests_as_device1'
+    )
+    device2: Mapped[Optional['Device']] = relationship(
+        foreign_keys=[device2_id],
+        back_populates='top_requests_as_device2'
+    )
+    device3: Mapped[Optional['Device']] = relationship(
+        foreign_keys=[device3_id],
+        back_populates='top_requests_as_device3'
+    )
     user: Mapped[Optional['User']] = relationship(back_populates='top_requests')
     items: Mapped[List['TopRequestItem']] = relationship(
         back_populates='top_request', cascade='all, delete-orphan')

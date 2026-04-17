@@ -4,7 +4,8 @@ from typing import Optional
 
 class SearchRequest(BaseModel):
     phrase: str
-    regions: list[int] | None = None
+    regions: list[int] | None = [1]
+    devices: list[int] = [4]
 
 class DynamicsRequest(BaseModel):
     phrase: str

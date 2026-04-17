@@ -12,7 +12,7 @@ class YandexWordstatService:
         }
 
     async def _make_request(self, endpoint: str, json_data: Dict[str, Any]) -> \
-    Dict[str, Any]:
+            Dict[str, Any]:
         # Настраиваем 3 попытки переподключения при сбоях сети
         transport = httpx.AsyncHTTPTransport(retries=3)
 
@@ -33,9 +33,33 @@ class YandexWordstatService:
                         "detail": str(e)}
 
     async def get_top_requests(self, phrase: str,
-                               regions: Optional[List[int]] = None):
-        json_data = {"phrase": phrase, "regions": regions} if regions else {
-            "phrase": phrase}
+                               regions: Optional[List[int]] = None,
+                               devices: list[int] = None):
+        if not regions:
+            regions = [1]
+
+        json_data = {
+            "phrase": phrase,
+            "regions": regions
+        }
+
+        if devices:
+            # Если пришел ID 4 или список пуст - по умолчанию "all"
+            if 4 in devices or not devices:
+                json_data["devices"] = ["all"]
+            else:
+                # Сопоставляем ваши ID (1,2,3) со строками Яндекса
+                dev_mapping = {1: "phone", 2: "desktop", 3: "tablet"}
+                selected_devs = [dev_mapping[d] for d in devices if
+                                 d in dev_mapping]
+
+                if selected_devs:
+                    json_data["devices"] = selected_devs
+                else:
+                    json_data["devices"] = ["all"]
+        else:
+            json_data["devices"] = ["all"]
+
         return await self._make_request("/v1/topRequests", json_data)
 
     async def get_dynamics(self, phrase: str, period: str, from_date: str,
