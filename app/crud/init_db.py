@@ -1,7 +1,7 @@
 import logging
 from sqlalchemy import select
 from app.services.wordstat import YandexWordstatService
-from app.models import Region, Role, User
+from app.models import Region, Role, User, Device
 from app.core.security import get_password_hash
 
 logger = logging.getLogger(__name__)
@@ -17,6 +17,20 @@ async def init_roles(db):
             print(f"Роль {role_name} создана.")
     await db.flush()
 
+# Устройства
+async def init_devices(db):
+    devices_data = {
+        1: "phone",
+        2: "desktop",
+        3: "tablet",
+        4: "all"
+    }
+    for dev_id, dev_name in devices_data.items():
+        result = await db.execute(select(Device).where(Device.id == dev_id))
+        if not result.scalars().first():
+            db.add(Device(id=dev_id, name=dev_name))
+            print(f"Устройство '{dev_name}' добавлено.")
+    await db.flush()
 
 # Администратор
 async def init_admin(db):
@@ -93,6 +107,7 @@ async def init_regions(db):
 async def setup_initial_data(db):
     try:
         await init_roles(db)
+        await init_devices(db)
         await init_admin(db)
         await init_regions(db)
         await db.commit()
