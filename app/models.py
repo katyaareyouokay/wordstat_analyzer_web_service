@@ -6,12 +6,21 @@ from sqlalchemy import func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base
 
-# Создаем вспомогательную таблицу для связи запросов и регионов.
+# Создаем вспомогательные таблицы для связи запросов и регионов и динамики и регионов.
 top_request_regions = Table(
     "top_request_regions",
     Base.metadata,
     Column("top_request_id", Integer,
            ForeignKey("top_requests.id", ondelete="CASCADE"), primary_key=True),
+    Column("region_id", Integer, ForeignKey("regions.id", ondelete="CASCADE"),
+           primary_key=True),
+)
+
+dynamics_regions = Table(
+    "dynamics_regions",
+    Base.metadata,
+    Column("dynamics_id", Integer, ForeignKey("dynamics.id", ondelete="CASCADE"),
+           primary_key=True),
     Column("region_id", Integer, ForeignKey("regions.id", ondelete="CASCADE"),
            primary_key=True),
 )
@@ -65,7 +74,11 @@ class Region(Base):
         back_populates="regions"
     )
 
-    dynamics: Mapped[List['Dynamics']] = relationship(back_populates='region')
+    dynamics: Mapped[List["Dynamics"]] = relationship(
+        secondary=dynamics_regions,
+        back_populates="regions"
+    )
+
     regions_requests_items: Mapped[List['RegionsRequestItem']] = relationship(
         back_populates='region')
 
@@ -227,8 +240,11 @@ class Dynamics(Base):
     from_date: Mapped[date] = mapped_column(Date, nullable=False)
     to_date: Mapped[date] = mapped_column(Date, nullable=False)
     period: Mapped[str] = mapped_column(String(20), nullable=False)
-    region_id: Mapped[Optional[int]] = mapped_column(ForeignKey('regions.id'),
-                                                     nullable=True)
+
+    regions: Mapped[List["Region"]] = relationship(
+        secondary=dynamics_regions,
+        back_populates="dynamics"
+    )
     device1_id: Mapped[Optional[int]] = mapped_column(ForeignKey('devices.id'),
                                                       nullable=True)
     device2_id: Mapped[Optional[int]] = mapped_column(ForeignKey('devices.id'),
@@ -240,7 +256,6 @@ class Dynamics(Base):
 
     search_phrase: Mapped['SearchPhrase'] = relationship(
         back_populates='dynamics')
-    region: Mapped[Optional['Region']] = relationship(back_populates='dynamics')
     device1: Mapped[Optional['Device']] = relationship(foreign_keys=[device1_id],
                                                        back_populates='dynamics_as_device1')
     device2: Mapped[Optional['Device']] = relationship(foreign_keys=[device2_id],
@@ -358,7 +373,6 @@ Index('idx_top_request_items_search_phrase', TopRequestItem.search_phrase_id)
 
 Index('idx_dynamics_group', Dynamics.group_id)
 Index('idx_dynamics_search_phrase', Dynamics.search_phrase_id)
-Index('idx_dynamics_region', Dynamics.region_id)
 Index('idx_dynamics_user', Dynamics.user_id)
 Index('idx_dynamics_device1', Dynamics.device1_id)
 Index('idx_dynamics_device2', Dynamics.device2_id)

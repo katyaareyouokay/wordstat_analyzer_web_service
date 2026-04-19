@@ -139,7 +139,7 @@ async function runAnalysis() {
             .map(chip => {
                 const text = chip.innerText.toLowerCase();
                 if (text === 'десктоп') return 'desktop';
-                if (text === 'телефоны') return 'phone'; // Было 'мобильные'
+                if (text === 'телефоны') return 'phone';
                 if (text === 'планшеты') return 'tablet';
                 return null;
             })
@@ -833,3 +833,68 @@ function renderSingleBubbleChart(canvasId, allPhrases) {
     }
 }
 
+// 1. Функция открытия/закрытия
+function toggleRegions() {
+    const list = document.getElementById('regions-list');
+    list.classList.toggle('show');
+}
+
+// Закрытие при клике мимо
+window.addEventListener('click', function(e) {
+    if (!document.getElementById('region-dropdown').contains(e.target)) {
+        document.getElementById('regions-list').classList.remove('show');
+    }
+});
+
+// 2. Загрузка регионов и вставка в список
+async function initializeRegions() {
+    const container = document.getElementById('regions-list');
+    const label = document.getElementById('selected-regions-label');
+
+    try {
+        const token = localStorage.getItem('token');
+        const response = await fetch('/wordstat/regions/dict', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        const regions = await response.json();
+
+        if (regions.length > 0) {
+            container.innerHTML = regions.map(reg => `
+                <div class="region-option" onclick="handleRegionClick(event, this)">
+                    <input type="checkbox" value="${reg.id}" class="region-checkbox" onchange="updateRegionsLabel()">
+                    <span>${reg.label}</span>
+                </div>
+            `).join('');
+        }
+    } catch (err) {
+        container.innerHTML = '<div style="padding:20px;">Ошибка загрузки</div>';
+    }
+}
+
+// 3. Чтобы можно было кликнуть на всю строку, а не только на квадратик чекбокса
+function handleRegionClick(event, element) {
+    // Если кликнули не на сам чекбокс (чтобы не было двойного срабатывания)
+    if (event.target.type !== 'checkbox') {
+        const cb = element.querySelector('.region-checkbox');
+        cb.checked = !cb.checked;
+        updateRegionsLabel();
+    }
+}
+
+// 4. Обновление текста (сколько выбрано)
+function updateRegionsLabel() {
+    const checked = document.querySelectorAll('.region-checkbox:checked');
+    const label = document.getElementById('selected-regions-label');
+
+    if (checked.length === 0) {
+        label.innerText = "Все регионы";
+    } else if (checked.length === 1) {
+        label.innerText = checked[0].parentElement.innerText.trim();
+    } else {
+        label.innerText = `Выбрано: ${checked.length}`;
+    }
+}
+
+
+document.addEventListener('DOMContentLoaded', initializeRegions);

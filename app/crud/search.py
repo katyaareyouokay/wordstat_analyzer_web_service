@@ -25,7 +25,7 @@ async def save_search_result(
         yandex_data: dict,
         group_id: int,
         device_ids: list[int] = None,
-        region_ids: list[int] = [1]
+        region_ids: list[int] = None,
 ):
     phrase_id = await get_or_create_phrase(db, phrase_text, user_id)
 
@@ -83,7 +83,9 @@ async def save_dynamics_result(
         phrase_text: str,
         yandex_data: dict,
         group_id: int,
-        params: dict
+        params: dict,
+        device_ids: list[int] = None,
+        region_ids: list[int] = None
 ):
     phrase_id = await get_or_create_phrase(db, phrase_text, user_id)
 
@@ -92,19 +94,37 @@ async def save_dynamics_result(
     else:
         to_dt = datetime.now().date()
 
-    # 3. Создаем запись в таблице dynamics
+    selected_regions = []
+    if region_ids:
+        res = await db.execute(
+            select(Region).where(Region.id.in_(region_ids)))
+        selected_regions = res.scalars().all()
+
+    # Логика распределения девайсов
+    is_all = device_ids and (
+                    4 in device_ids or {1, 2, 3}.issubset(set(device_ids)))
+
+    d1_id = 1 if (is_all or (device_ids and 1 in device_ids)) else None
+    d2_id = 2 if (is_all or (device_ids and 2 in device_ids)) else None
+    d3_id = 3 if (is_all or (device_ids and 3 in device_ids)) else None
+
+    # 3Создаем запись в таблице dynamics
     db_dynamics = Dynamics(
         group_id=group_id,
         search_phrase_id=phrase_id,
         user_id=user_id,
         from_date=datetime.strptime(params["from_date"], "%Y-%m-%d").date(),
         to_date=to_dt,
-        period=params["period"]
+        period=params["period"],
+        device1_id=d1_id,
+        device2_id=d2_id,
+        device3_id=d3_id,
+        regions=selected_regions
     )
     db.add(db_dynamics)
     await db.flush()
 
-    # 4. Сохраняем точки из ответа Яндекса
+    # Сохраняем точки из ответа Яндекса
     points = yandex_data.get("dynamics", [])
 
     for p in points:
@@ -112,7 +132,8 @@ async def save_dynamics_result(
             dynamics_id=db_dynamics.id,
             point_date=datetime.strptime(p.get("date"), "%Y-%m-%d").date(),
             count=p.get("count", 0),
-            share=p.get("share", 0.0)
+            share=p.get("share", 0.0),
+            search_phrase_id=phrase_id
         )
         db.add(new_point)
     await db.commit()

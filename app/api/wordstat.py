@@ -7,7 +7,7 @@ from app.core.database import get_db
 from app.core.security import get_current_user
 from app.models import User, Dynamics, TopRequest, \
     RegionsRequest as RegionsRequestModel, DynamicsPoint, RegionsRequestItem, \
-    TopRequestItem
+    TopRequestItem, Region
 from app.crud.search import save_search_result, save_dynamics_result, \
     save_regions_result
 from fastapi.responses import StreamingResponse
@@ -23,7 +23,6 @@ router = APIRouter()
 @router.post("/search")
 async def search_top(request: SearchRequest, db: AsyncSession = Depends(get_db),
                      current_user: User = Depends(get_current_user)):
-
     data = await wordstat_service.get_top_requests(
         phrase=request.phrase,
         regions=request.regions,
@@ -50,7 +49,12 @@ async def search_dynamics(request: DynamicsRequest,
                           db: AsyncSession = Depends(get_db),
                           current_user: User = Depends(get_current_user)):
     data = await wordstat_service.get_dynamics(
-        request.phrase, request.period, request.from_date, request.to_date
+        phrase=request.phrase,
+        period=request.period,
+        from_date=request.from_date,
+        to_date=request.to_date,
+        regions=request.regions,
+        devices=request.devices
     )
     if "error" in data: raise HTTPException(status_code=400, detail=data)
 
@@ -62,12 +66,15 @@ async def search_dynamics(request: DynamicsRequest,
         phrase_text=request.phrase,
         yandex_data=data,
         group_id=group_id,
+        device_ids=request.devices,
+        region_ids=request.regions,
         params={
             "from_date": request.from_date,
             "to_date": request.to_date,
             "period": request.period
         }
     )
+
     return {"status": "success", "group_id": group_id, "data": data}
 
 
@@ -91,6 +98,14 @@ async def search_regions(request: RegionsRequest,
     )
 
     return {"status": "success", "group_id": group_id, "data": data}
+
+
+@router.get("/regions/dict")
+async def get_regions_dictionary(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Region).order_by(Region.label))
+    regions = result.scalars().all()
+
+    return [{"id": r.id, "label": r.label} for r in regions]
 
 
 @router.get("/history")

@@ -633,3 +633,86 @@ textarea {
     text-transform: uppercase;
     letter-spacing: 1px;
 }
+/* Контейнер */
+.custom-select-container {
+    position: relative;
+    width: 100%;
+}
+
+/* Фасад (имитация твоего инпута/селекта) */
+.select-facade {
+    width: 100%;
+    padding: 12px 25px;
+    border: 2px solid var(--border-soft);
+    border-radius: var(--radius-lg); /* Твои 40px */
+    background-color: var(--bg-card);
+    font-family: 'Montserrat', sans-serif;
+    font-size: 1rem;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: var(--transition);
+    box-sizing: border-box;
+}
+
+.select-facade:hover {
+    border-color: var(--primary);
+}
+
+/* Стрелочка как у стандартного селекта */
+.select-arrow::after {
+    content: "▼";
+    font-size: 0.7rem;
+    color: var(--text-muted);
+}
+
+/* Выпадающий список */
+.select-dropdown-list {
+    display: none;
+    position: absolute;
+    top: calc(100% + 5px);
+    left: 0;
+    right: 0;
+    background: white;
+    border: 2px solid var(--border-soft);
+    border-radius: 15px; /* Аккуратное скругление списка */
+    max-height: 250px;
+    overflow-y: auto;
+    z-index: 100;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+}
+
+.select-dropdown-list.show {
+    display: block;
+}
+
+/* Элемент списка (Регион) */
+.region-option {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 20px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+/* ВЫДЕЛЕНИЕ ПРИ НАВЕДЕНИИ КУРСОРМ */
+.region-option:hover {
+    background-color: var(--primary); /* Твой фирменный синий */
+    color: white; /* Текст становится белым */
+}
+
+/* Настройка чекбокса внутри */
+.region-option input[type="checkbox"] {
+    cursor: pointer;
+    width: 18px;
+    height: 18px;
+    accent-color: var(--primary);
+}
+
+/* Если мы навели на строку, чекбокс должен выглядеть контрастно */
+.region-option:hover input[type="checkbox"] {
+    accent-color: #fff;
+}

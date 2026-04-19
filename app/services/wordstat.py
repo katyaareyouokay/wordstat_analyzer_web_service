@@ -62,11 +62,45 @@ class YandexWordstatService:
 
         return await self._make_request("/v1/topRequests", json_data)
 
-    async def get_dynamics(self, phrase: str, period: str, from_date: str,
-                           to_date: Optional[str] = None):
-        json_data = {"phrase": phrase, "period": period, "fromDate": from_date}
+    async def get_dynamics(
+            self,
+            phrase: str,
+            period: str,
+            from_date: str,
+            to_date: str,
+            regions: list[int] = None,
+            devices: list[int] = None
+    ):
+        json_data = {
+            "phrase": phrase,
+            "period": period,
+            "fromDate": from_date
+        }
+
         if to_date:
             json_data["toDate"] = to_date
+
+        if regions:
+            json_data[
+                "regions"] = regions
+
+        if devices:
+            # Если пришел ID 4 или список пуст - по умолчанию "all"
+            if 4 in devices or not devices:
+                json_data["devices"] = ["all"]
+            else:
+                # Сопоставляем ваши ID (1,2,3) со строками Яндекса
+                dev_mapping = {1: "phone", 2: "desktop", 3: "tablet"}
+                selected_devs = [dev_mapping[d] for d in devices if
+                                 d in dev_mapping]
+
+                if selected_devs:
+                    json_data["devices"] = selected_devs
+                else:
+                    json_data["devices"] = ["all"]
+        else:
+            json_data["devices"] = ["all"]
+
         return await self._make_request("/v1/dynamics", json_data)
 
     async def get_regions_distribution(self, phrase: str,
