@@ -38,7 +38,8 @@ async def search_top(request: SearchRequest, db: AsyncSession = Depends(get_db),
         request.phrase,
         data,
         group_id,
-        device_ids=request.devices
+        device_ids=request.devices,
+        region_ids=request.regions
     )
 
     return {"status": "success", "group_id": group_id, "data": data}

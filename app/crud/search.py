@@ -24,11 +24,20 @@ async def save_search_result(
         phrase_text: str,
         yandex_data: dict,
         group_id: int,
-        device_ids: list[int] = None
+        device_ids: list[int] = None,
+        region_ids: list[int] = [1]
 ):
     phrase_id = await get_or_create_phrase(db, phrase_text, user_id)
 
-    # Если выбрано 'all' (4) или ничего не выбрано, то считаем, что выбраны все устройства
+    # Получаем объекты регионов из БД
+    selected_regions = []
+    if region_ids:
+        result = await db.execute(
+            select(Region).where(Region.id.in_(region_ids))
+        )
+        selected_regions = result.scalars().all()
+
+    # Если выбрано all (4) или ничего не выбрано, то считаем, что выбраны все устройства
     is_all = device_ids and (
                 4 in device_ids or set([1, 2, 3]).issubset(set(device_ids)))
 
@@ -45,8 +54,12 @@ async def save_search_result(
         total_count=yandex_data.get("totalCount", 0),
         device1_id=d1_id,
         device2_id=d2_id,
-        device3_id=d3_id
+        device3_id=d3_id,
+        regions=selected_regions
     )
+
+    print(f"DEBUG: IDs from request: {region_ids}")
+    print(f"DEBUG: Found regions objects: {[r.id for r in selected_regions]}")
 
     db.add(db_top_request)
     await db.flush()

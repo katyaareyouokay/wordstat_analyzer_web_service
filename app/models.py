@@ -1,11 +1,20 @@
 from datetime import datetime, date
 from typing import Optional, List
 from sqlalchemy import (String, Integer, ForeignKey, DateTime, Date, Float,
-                        Text, Index, CheckConstraint, Boolean)
+                        Text, Table, Column, Index, CheckConstraint, Boolean)
 from sqlalchemy import func
-
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base
+
+# Создаем вспомогательную таблицу для связи запросов и регионов.
+top_request_regions = Table(
+    "top_request_regions",
+    Base.metadata,
+    Column("top_request_id", Integer,
+           ForeignKey("top_requests.id", ondelete="CASCADE"), primary_key=True),
+    Column("region_id", Integer, ForeignKey("regions.id", ondelete="CASCADE"),
+           primary_key=True),
+)
 
 
 # Cправочники
@@ -51,8 +60,11 @@ class Region(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     label: Mapped[str] = mapped_column(Text, nullable=False)
 
-    top_requests: Mapped[List['TopRequest']] = relationship(
-        back_populates='region')
+    top_requests: Mapped[List["TopRequest"]] = relationship(
+        secondary=top_request_regions,
+        back_populates="regions"
+    )
+
     dynamics: Mapped[List['Dynamics']] = relationship(back_populates='region')
     regions_requests_items: Mapped[List['RegionsRequestItem']] = relationship(
         back_populates='region')
@@ -131,11 +143,10 @@ class TopRequest(Base):
     search_phrase_id: Mapped[int] = mapped_column(
         ForeignKey('search_phrases.id'),
         nullable=False
-        )
+    )
     requested_at: Mapped[datetime] = mapped_column(DateTime,
                                                    server_default=func.now())
-    region_id: Mapped[Optional[int]] = mapped_column(ForeignKey('regions.id'),
-                                                     nullable=True)
+
     device1_id: Mapped[Optional[int]] = mapped_column(ForeignKey('devices.id'),
                                                       nullable=True)
     device2_id: Mapped[Optional[int]] = mapped_column(ForeignKey('devices.id'),
@@ -148,8 +159,11 @@ class TopRequest(Base):
 
     search_phrase: Mapped['SearchPhrase'] = relationship(
         back_populates='top_requests')
-    region: Mapped[Optional['Region']] = relationship(
-        back_populates='top_requests')
+
+    regions: Mapped[List["Region"]] = relationship(
+        secondary=top_request_regions,
+        back_populates="top_requests"
+    )
 
     device1_id: Mapped[Optional[int]] = mapped_column(ForeignKey('devices.id'),
                                                       nullable=True)
@@ -334,7 +348,6 @@ Index('idx_search_phrases_user', SearchPhrase.user_id)
 
 Index('idx_top_requests_group', TopRequest.group_id)
 Index('idx_top_requests_search_phrase', TopRequest.search_phrase_id)
-Index('idx_top_requests_region', TopRequest.region_id)
 Index('idx_top_requests_user', TopRequest.user_id)
 Index('idx_top_requests_device1', TopRequest.device1_id)
 Index('idx_top_requests_device2', TopRequest.device2_id)
