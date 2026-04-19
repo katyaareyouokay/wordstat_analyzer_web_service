@@ -130,45 +130,46 @@ function updateDateConstraints() {
 async function runAnalysis() {
     try {
         const phraseInput = document.getElementById('query-input');
-        const phrase = phraseInput.value; 
+        const phrase = phraseInput.value.trim();
         const typeSelect = document.getElementById('query-type');
         const type = typeSelect.value;
 
-        // ИСПРАВЛЕНО: сверяем с реальным текстом из HTML
-        const selectedDevices = Array.from(document.querySelectorAll('.device-chip.active'))
-            .map(chip => {
-                const text = chip.innerText.toLowerCase();
-                if (text === 'десктоп') return 'desktop';
-                if (text === 'телефоны') return 'phone';
-                if (text === 'планшеты') return 'tablet';
-                return null;
-            })
-            .filter(d => d !== null);
-
-        if (!phrase) { 
-            alert("Введите запрос!"); 
-            return; 
+        if (!phrase) {
+            alert("Введите запрос!");
+            return;
         }
 
-        // Перед запуском можно очистить контейнер, чтобы не видеть старых данных
-        const container = document.getElementById('results-container');
-        if (container) container.innerHTML = '<p style="text-align:center; padding:20px;">Загрузка...</p>';
+        // 1. СОБИРАЕМ РЕГИОНЫ (ID из чекбоксов)
+        const selectedRegions = Array.from(document.querySelectorAll('.region-checkbox:checked'))
+            .map(cb => parseInt(cb.value));
 
+        // 2. СОБИРАЕМ УСТРОЙСТВА (Конвертируем текст чипов в ID для бэкенда)
+        // 1: Desktop, 2: Mobile, 3: Tablet, 4: All
+        const deviceMap = { 'десктоп': 1, 'телефоны': 2, 'планшеты': 3, 'все': 4 };
+        const selectedDevices = Array.from(document.querySelectorAll('.device-chip.active'))
+            .map(chip => deviceMap[chip.innerText.toLowerCase()])
+            .filter(id => id !== undefined);
+
+        // Очистка контейнера и лоадер
+        const container = document.getElementById('results-container');
+        if (container) container.innerHTML = '<div style="text-align:center; padding:40px;"><div class="loader-simple">Загрузка данных...</div></div>';
+
+        // 3. РАСПРЕДЕЛЕНИЕ ПО ТИПАМ ЗАПРОСА
         if (type === 'top') {
-            await getTopRequests(phrase, selectedDevices); 
-        } else if (type === 'regions') {
-            const rType = document.getElementById('region-type-select').value;
-            await getRegionsAnalysis(phrase, rType, selectedDevices); 
+            // Если будет нужна функция для ТОП-запросов, добавьте ее по аналогии
+            await getTopRequests(phrase, selectedRegions, selectedDevices);
         } else if (type === 'dynamics') {
             const periodType = document.getElementById('period-type-select').value;
             const dateFrom = document.getElementById('date-from').value;
             const dateTo = document.getElementById('date-to').value;
 
-            if (!dateFrom || !dateTo) { 
-                alert("Выберите период (Даты От и До)!"); 
-                return; 
+            if (!dateFrom || !dateTo) {
+                alert("Выберите период (Даты От и До)!");
+                return;
             }
-            await getDynamicsAnalysis(phrase, periodType, dateFrom, dateTo, selectedDevices);
+
+            // Передаем все собранные массивы (regions и devices)
+            await getDynamicsAnalysis(phrase, periodType, dateFrom, dateTo, selectedRegions, selectedDevices);
         }
     } catch (error) {
         console.error("Ошибка при выполнении анализа:", error);
@@ -283,46 +284,58 @@ async function downloadFromHistory(id, type) {
         alert("Ошибка при скачивании файла: " + error.message);
     }
 }
-async function getDynamicsAnalysis(inputPhrase, periodType, dateFrom, dateTo) {
+async function getDynamicsAnalysis(inputPhrase, periodType, dateFrom, dateTo, regions, devices) {
     const token = localStorage.getItem('token');
+    // Поддержка нескольких фраз через запятую
     const phrases = inputPhrase.split(',').map(p => p.trim()).filter(p => p);
     let allResults = {};
 
     for (const p of phrases) {
-        // Теперь мы просто доверяем датам из календаря
         try {
             const response = await fetch('/wordstat/dynamics', {
                 method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json', 
-                    'Authorization': `Bearer ${token}` 
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({
                     phrase: p,
                     period: periodType,
                     from_date: dateFrom,
-                    to_date: dateTo
+                    to_date: dateTo,
+                    regions: regions, // Массив ID: [1, 225, ...]
+                    devices: devices  // Массив ID: [1, 2]
                 })
             });
 
             const result = await response.json();
 
             if (response.ok) {
+                // Предполагаем, что бэкенд возвращает данные в result.data
                 allResults[p] = {
                     dynamics: result.data.dynamics || result.data.points || [],
                     period: periodType
                 };
             } else {
-                alert(`Ошибка для фразы "${p}": ${result.detail || 'Некорректный период'}`);
+                console.error(`Ошибка API для "${p}":`, result);
+                alert(`Ошибка для фразы "${p}": ${result.detail || 'Проверьте параметры запроса'}`);
             }
         } catch (err) {
-            console.error(`Сетевая ошибка:`, err);
+            console.error(`Сетевая ошибка для фразы "${p}":`, err);
         }
     }
 
+    // Если получили хотя бы один результат — рендерим
     if (Object.keys(allResults).length > 0) {
-        renderMultipleResults(allResults, 'dynamics');
-        showPage('results');
+        if (typeof renderMultipleResults === 'function') {
+            renderMultipleResults(allResults, 'dynamics');
+            showPage('results');
+        } else {
+            console.error("Функция renderMultipleResults не найдена!");
+        }
+    } else {
+        const container = document.getElementById('results-container');
+        if (container) container.innerHTML = '<p style="text-align:center; padding:20px;">Данные не найдены или произошла ошибка.</p>';
     }
 }
 
@@ -517,27 +530,46 @@ function renderDoubleChart(canvasId, items, label) {
     window.activeCharts.push(chart);
 }
 
-async function getTopRequests(inputPhrase) {
+async function getTopRequests(inputPhrase, regions, devices) {
     const token = localStorage.getItem('token');
     const phrases = inputPhrase.split(',').map(p => p.trim()).filter(p => p);
     let allResults = {};
 
     for (const p of phrases) {
         try {
-            const response = await fetch('/wordstat/search', { // ИСПРАВЛЕНО: /search
+            const response = await fetch('/wordstat/search', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify({ 
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
                     phrase: p,
-                    regions: [1] // Можно добавить выбор регионов из интерфейса
+                    regions: regions,
+                    devices: devices
                 })
             });
+
             const result = await response.json();
-            if (response.ok) { allResults[p] = result.data; }
-        } catch (err) { console.error(err); }
+
+            if (response.ok) {
+                // ВАЖНО: сохраняем результат целиком в объект под ключом фразы
+                // Твоя renderMultipleResults ожидает именно такой формат
+                allResults[p] = result;
+            } else {
+                console.error(`Ошибка для фразы "${p}":`, result.detail);
+            }
+        } catch (err) {
+            console.error(`Сетевая ошибка на фразе "${p}":`, err);
+        }
     }
-    renderMultipleResults(allResults, 'top');
-    showPage('results');
+
+    if (Object.keys(allResults).length > 0) {
+        renderMultipleResults(allResults, 'top');
+        showPage('results');
+    } else {
+        alert("Не удалось получить данные. Проверьте параметры запроса.");
+    }
 }
 
 async function getRegionsAnalysis(inputPhrase, regionType) {

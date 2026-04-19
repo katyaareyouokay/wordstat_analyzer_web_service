@@ -68,6 +68,7 @@ async def save_search_result(
     for item in items:
         new_item = TopRequestItem(
             top_request_id=db_top_request.id,
+            search_phrase_id=phrase_id,
             phrase=item.get("phrase"),
             count=item.get("count", 0)
         )
