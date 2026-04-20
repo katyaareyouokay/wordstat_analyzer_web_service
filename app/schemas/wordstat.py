@@ -18,3 +18,4 @@ class DynamicsRequest(BaseModel):
 class RegionsRequest(BaseModel):
     phrase: str
     region_type: str = "all"
+    devices: list[int] = []

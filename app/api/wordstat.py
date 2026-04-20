@@ -94,7 +94,8 @@ async def search_regions(request: RegionsRequest,
         phrase_text=request.phrase,
         yandex_data=data,
         group_id=group_id,
-        region_type=request.region_type
+        region_type=request.region_type,
+        device_ids=request.devices
     )
 
     return {"status": "success", "group_id": group_id, "data": data}

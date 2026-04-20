@@ -147,29 +147,36 @@ async def save_regions_result(
         phrase_text: str,
         yandex_data: dict,
         group_id: int,
-        region_type: str
+        region_type: str,
+        device_ids: list[int] = None
 ):
-    # 1. Получаем ID фразы
     phrase_id = await get_or_create_phrase(db, phrase_text, user_id)
 
-    # 2. Создаем "шапку" запроса
+    is_all = device_ids and (
+                    4 in device_ids or {1, 2, 3}.issubset(set(device_ids)))
+
+    d1_id = 1 if (is_all or (device_ids and 1 in device_ids)) else None
+    d2_id = 2 if (is_all or (device_ids and 2 in device_ids)) else None
+    d3_id = 3 if (is_all or (device_ids and 3 in device_ids)) else None
+
     db_reg_req = RegionsRequest(
         group_id=group_id,
         user_id=user_id,
         search_phrase_id=phrase_id,
-        region_type=region_type
+        region_type=region_type,
+        device1_id=d1_id,
+        device2_id=d2_id,
+        device3_id=d3_id
     )
     db.add(db_reg_req)
     await db.flush()
 
-    # 3. Сохраняем элементы
     regions_list = yandex_data.get("regions", [])
     for reg in regions_list:
         r_id = reg.get("regionId")
         if not r_id:
             continue
 
-        # Проверяем, есть ли такой регион в базе
         db_region = await db.get(Region, r_id)
         if not db_region:
             r_name = reg.get("regionName", f"Регион {r_id}")

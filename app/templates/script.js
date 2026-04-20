@@ -154,10 +154,9 @@ async function runAnalysis() {
         const container = document.getElementById('results-container');
         if (container) container.innerHTML = '<div style="text-align:center; padding:40px;"><div class="loader-simple">Загрузка данных...</div></div>';
 
-        // 3. РАСПРЕДЕЛЕНИЕ ПО ТИПАМ ЗАПРОСА
         if (type === 'top') {
-            // Если будет нужна функция для ТОП-запросов, добавьте ее по аналогии
             await getTopRequests(phrase, selectedRegions, selectedDevices);
+
         } else if (type === 'dynamics') {
             const periodType = document.getElementById('period-type-select').value;
             const dateFrom = document.getElementById('date-from').value;
@@ -168,16 +167,20 @@ async function runAnalysis() {
                 return;
             }
 
-            // Передаем все собранные массивы (regions и devices)
             await getDynamicsAnalysis(phrase, periodType, dateFrom, dateTo, selectedRegions, selectedDevices);
+
+        } else if (type === 'regions') {
+            const regionTypeSelect = document.getElementById('region-type-select');
+            const regionType = regionTypeSelect ? regionTypeSelect.value : 'all';
+
+            await getRegionsAnalysis(phrase, regionType, selectedDevices);
         }
+
     } catch (error) {
         console.error("Ошибка при выполнении анализа:", error);
         alert("Произошла ошибка. Проверьте консоль браузера (F12).");
     }
 }
-
-
 function showPage(pageId) {
     // 1. Прячем все страницы
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -572,7 +575,7 @@ async function getTopRequests(inputPhrase, regions, devices) {
     }
 }
 
-async function getRegionsAnalysis(inputPhrase, regionType) {
+async function getRegionsAnalysis(inputPhrase, regionType, devices) {
     const token = localStorage.getItem('token');
     const phrases = inputPhrase.split(',').map(p => p.trim()).filter(p => p);
     let allResults = {};
@@ -584,7 +587,8 @@ async function getRegionsAnalysis(inputPhrase, regionType) {
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({
                     phrase: p,
-                    region_type: regionType
+                    region_type: regionType,
+                    devices: devices
                 })
             });
             const result = await response.json();
@@ -927,6 +931,5 @@ function updateRegionsLabel() {
         label.innerText = `Выбрано: ${checked.length}`;
     }
 }
-
 
 document.addEventListener('DOMContentLoaded', initializeRegions);
