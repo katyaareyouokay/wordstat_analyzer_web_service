@@ -98,6 +98,17 @@ async def search_regions(request: RegionsRequest,
         device_ids=request.devices
     )
 
+    regions_list = data.get("regions", [])
+    if regions_list:
+        r_ids = [r.get("regionId") for r in regions_list if r.get("regionId")]
+
+        res = await db.execute(select(Region).where(Region.id.in_(r_ids)))
+        db_regions = {r.id: r.label for r in res.scalars().all()}
+
+        for r in regions_list:
+            r_id = r.get("regionId")
+            r["regionName"] = db_regions.get(r_id, f"Регион ID {r_id}")
+
     return {"status": "success", "group_id": group_id, "data": data}
 
 

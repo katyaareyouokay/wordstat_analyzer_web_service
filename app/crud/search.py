@@ -1,3 +1,4 @@
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import SearchPhrase, TopRequest, TopRequestItem, Dynamics, \
@@ -7,14 +8,29 @@ from datetime import datetime
 
 async def get_or_create_phrase(db: AsyncSession, phrase_text: str,
                                user_id: int) -> int:
-    result = await db.execute(
-        select(SearchPhrase).where(SearchPhrase.phrase == phrase_text))
-    db_phrase = result.scalar_one_or_none()
-    if not db_phrase:
-        db_phrase = SearchPhrase(phrase=phrase_text, user_id=user_id)
-        db.add(db_phrase)
-        await db.flush()
-    return db_phrase.id
+    # 1. Сначала пытаемся просто найти фразу
+    stmt = select(SearchPhrase).where(SearchPhrase.phrase == phrase_text)
+    result = await db.execute(stmt)
+    phrase = result.scalars().first()
+
+    if phrase:
+        return phrase.id
+
+    # 2. Если не нашли, пробуем создать
+    new_phrase = SearchPhrase(phrase=phrase_text, user_id=user_id)
+    db.add(new_phrase)
+
+    try:
+        # Пытаемся зафиксировать запись
+        await db.commit()
+        return new_phrase.id
+    except IntegrityError:
+        await db.rollback()
+
+        stmt = select(SearchPhrase).where(SearchPhrase.phrase == phrase_text)
+        result = await db.execute(stmt)
+        phrase = result.scalars().first()
+        return phrase.id
 
 
 # 1. Сохранение ТОПов

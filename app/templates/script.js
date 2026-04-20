@@ -360,7 +360,7 @@ function formatWeekPeriod(startDateStr) {
 async function renderMultipleResults(results, type) {
     const container = document.getElementById('results-container');
     if (!container) return;
-    container.innerHTML = ''; 
+    container.innerHTML = '';
     lastAnalysisResults = results;
 
     if (window.activeCharts) {
@@ -449,14 +449,28 @@ async function renderMultipleResults(results, type) {
             }, 100);
         }
         else if (type === 'regions') {
-            thead.innerHTML = `<tr><th>Регион</th><th>Запросы</th><th>Доля %</th><th>Affinity</th></tr>`;
-            tbody.innerHTML = items.map(i => `
-                <tr>
-                    <td>${i.region?.label || i.label || 'Регион'}</td>
-                    <td>${(i.count || 0).toLocaleString()}</td>
-                    <td>${((i.share || 0) * 100).toFixed(2)}%</td>
-                    <td>${(i.affinity_index || 0).toFixed(0)}%</td>
-                </tr>`).join('');
+            container.innerHTML = `
+                    <table class="results-table">
+                        <thead>
+                            <tr>
+                                <th>Регион/Город</th>
+                                <th>Запросы</th>
+                                <th>Доля %</th>
+                                <th>Affinity</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${items.map(i => `
+                                <tr>
+                                    <td>${i.regionName || 'Регион ' + i.regionId}</td>
+                                    <td>${(i.count || 0).toLocaleString()}</td>
+                                    <td>${((i.share || 0) * 100).toFixed(2)}%</td>
+                                    <td>${(i.affinityIndex || 0).toFixed(0)}%</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
         }
 
         table.appendChild(thead); table.appendChild(tbody);
