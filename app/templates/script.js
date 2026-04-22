@@ -1,9 +1,40 @@
 function toggleExtraOptions() {
-    const type = document.getElementById('query-type').value;
-    const rb = document.getElementById('region-details-block');
-    const db = document.getElementById('dynamics-details-block');
-    if (rb) rb.style.display = (type === 'regions' ? 'block' : 'none');
-    if (db) db.style.display = (type === 'dynamics' ? 'block' : 'none');
+
+    const queryType = document.getElementById('query-type').value;
+    
+    const dynamicsBlock = document.getElementById('dynamics-details-block');
+    const regionDetailsBlock = document.getElementById('region-details-block');
+    const fullRegionSelectBlock = document.getElementById('full-region-select-block');
+
+
+    if (typeof selectedRegions !== 'undefined') {
+        selectedRegions = []; 
+    }
+
+    const label = document.getElementById('selected-regions-label');
+    if (label) {
+        label.textContent = 'Все регионы';
+    }
+
+    const checkboxes = document.querySelectorAll('#regions-list input[type="checkbox"]');
+    checkboxes.forEach(cb => cb.checked = false);
+
+    if (queryType === 'dynamics') {
+        dynamicsBlock.style.display = 'block';
+    } else {
+        dynamicsBlock.style.display = 'none';
+    }
+
+    if (queryType === 'regions') {
+        if (regionDetailsBlock) regionDetailsBlock.style.display = 'block'; 
+
+        if (fullRegionSelectBlock) fullRegionSelectBlock.style.display = 'none';
+    } else {
+
+        if (regionDetailsBlock) regionDetailsBlock.style.display = 'none';
+        
+        if (fullRegionSelectBlock) fullRegionSelectBlock.style.display = 'block';
+    }
 }
 
 let lastAnalysisResults = null; // Буфер для Excel
