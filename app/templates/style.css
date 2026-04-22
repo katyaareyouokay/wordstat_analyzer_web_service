@@ -1,24 +1,25 @@
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap');
 
 :root {
-    --bg-page: #fffcf7;          /* Мягкий кремовый фон */
+    /* Новая палитра: Профессиональный Голубой + Стальной Серый */
+    --bg-page: #f4f7f9;          /* Светлый серо-голубой фон */
     --bg-card: #ffffff;          /* Чистый белый для карточек */
-    --primary: #ff6eb4;          /* Основной розовый */
-    --primary-soft: #ff85c2;     /* Светло-розовый для градиентов */
-    --secondary: #ffcc33;        /* Солнечный желтый для акцентов */
-    --accent-light: #fff0f6;     /* Фон для второстепенных кнопок */
+    --primary: #3a86ff;          /* Акцентный голубой */
+    --primary-soft: #8ecae6;     /* Мягкий небесный для градиентов */
+    --secondary: #607d8b;        /* Стальной серый для акцентов */
+    --accent-light: #e3f2fd;     /* Светло-голубой фон для кнопок */
     
-    --text-main: #4a3a4b;        
-    --text-muted: #9d8a9e;       
+    --text-main: #263238;        /* Темный графит */
+    --text-muted: #78909c;       /* Холодный серый для подписей */
     
     /* Детали */
-    --border-soft: #f7eef7;
-    --radius-xl: 8px;           /* Большие скругления для карточек */
-    --radius-lg: 40px;           /* Скругления для кнопок и инпутов */
+    --border-soft: #eceff1;
+    --radius-xl: 8px;           /* Сохранено: Большие скругления для карточек */
+    --radius-lg: 40px;          /* Сохранено: Скругления для кнопок и инпутов */
     
-    /* Тени и анимации */
-    --shadow-main: 0 20px 50px rgba(255, 110, 180, 0.12);
-    --shadow-hover: 0 25px 60px rgba(255, 110, 180, 0.2);
+    /* Тени и анимации (обновлены под голубой цвет) */
+    --shadow-main: 0 20px 50px rgba(58, 134, 255, 0.08);
+    --shadow-hover: 0 25px 60px rgba(58, 134, 255, 0.15);
     --transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -41,7 +42,7 @@ body {
 /* 3. НАВИГАЦИЯ */
 nav {
     padding: 1.5rem 0;
-    background: rgba(255, 252, 247, 0.8);
+    background: rgba(244, 247, 249, 0.8); /* Обновлен фон */
     backdrop-filter: blur(10px);
     position: sticky;
     top: 0;
@@ -111,7 +112,7 @@ button {
     color: white;
     padding: 0.9rem 1.8rem;
     border-radius: var(--radius-lg);
-    box-shadow: 0 10px 25px rgba(255, 110, 180, 0.2);
+    box-shadow: 0 10px 25px rgba(58, 134, 255, 0.2);
 }
 
 .btn-primary:hover {
@@ -156,7 +157,7 @@ button {
 
 .hero h1 span {
     background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
-    
+    -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
 }
 
@@ -216,7 +217,7 @@ label {
 input, textarea, select {
     font-family: 'Montserrat', sans-serif;
     width: 100%;
-    background: #faf7fb;
+    background: #f8f9fa; /* Обновлен цвет инпутов */
     border: 2px solid transparent;
     padding: 1.2rem;
     border-radius: var(--radius-lg);
@@ -318,9 +319,8 @@ textarea {
     to { 
         opacity: 1; 
         transform: scale(1) translateY(0); 
-    }
+    } 
 }
-
 
 /* Стили для выбора устройств */
 .device-selector {
@@ -332,9 +332,9 @@ textarea {
 
 .device-chip {
     padding: 10px 18px;
-    background: #faf7fb;
+    background: #f8f9fa; /* Обновлен фон */
     border: 2px solid var(--border-soft);
-    border-radius: var(--radius-lg); /* Теперь они будут не сильно закругленными, как ты настроил */
+    border-radius: var(--radius-lg);
     font-size: 0.9rem;
     font-weight: 600;
     cursor: pointer;
@@ -353,5 +353,366 @@ textarea {
     background: var(--accent-light);
     border-color: var(--primary);
     color: var(--primary);
-    box-shadow: 0 4px 12px rgba(255, 110, 180, 0.1);
+    box-shadow: 0 4px 12px rgba(58, 134, 255, 0.1);
+}
+
+/* Стили страницы результатов */
+.results-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 2px solid var(--bg-page);
+    padding-bottom: 20px;
+}
+
+.chart-container {
+    background: #f8f9fa; /* Обновлен фон */
+    padding: 20px;
+    border-radius: var(--radius-lg);
+    height: 350px;
+}
+
+/* Сделаем числа в таблице более заметными */
+.custom-table td:last-child {
+    font-weight: 700;
+    color: var(--primary);
+    text-align: right;
+}
+
+#wordstat-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+    font-family: Arial, sans-serif;
+}
+
+#wordstat-table th, #wordstat-table td {
+    border: 1px solid #ddd;
+    padding: 12px;
+    text-align: left;
+}
+
+#wordstat-table th {
+    background-color: #f4f4f4;
+    font-weight: bold;
+}
+
+#wordstat-table tr:nth-child(even) {
+    background-color: #f9f9f9; /* Зебра */
+}
+
+/* Контейнер для заголовка и кнопки в одну строку */
+.results-action-bar {
+    display: flex;
+    justify-content: space-between; /* Распределяет элементы по краям */
+    align-items: center;            /* Центрирует их по вертикали */
+    margin-bottom: 20px;
+    padding: 10px 0;
+    border-bottom: 1px solid #eee;  /* Тонкая линия для разделения */
+}
+
+/* Стили для кнопки скачивания */
+.btn-icon-excel {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    background-color: #217346; /* Фирменный цвет Excel */
+    border: none;
+    transition: background 0.3s ease;
+}
+
+.btn-icon-excel:hover {
+    background-color: #1a5c38;
+}
+
+.btn-icon-excel .icon {
+    font-size: 1.2rem;
+}
+
+/* Сама таблица */
+.custom-table {
+    width: 100%;
+    border-collapse: separate; /* ОБЯЗАТЕЛЬНО для закруглений */
+    border-spacing: 0 8px;      /* Создает отступы между строками */
+    margin-top: 10px;
+}
+
+/* Стили для всех ячеек */
+.custom-table th, 
+.custom-table td {
+    padding: 12px 15px;
+    text-align: left;
+    background-color: #fff;    /* Фон ячейки */
+}
+
+/* Заголовки (без фона или с особым стилем) */
+.custom-table th {
+    background-color: transparent;
+    font-weight: 600;
+    color: #666;
+    border: none;
+}
+
+/* Закругляем левый край первой ячейки в строке */
+.custom-table td:first-child {
+    border-radius: 10px 0 0 10px;
+}
+
+/* Закругляем правый край последней ячейки в строке */
+.custom-table td:last-child {
+    border-radius: 0 10px 10px 0;
+}
+
+/* Добавим легкую тень, чтобы строки "парили" */
+.custom-table tbody tr {
+    transition: transform 0.2s ease;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
+/* Эффект при наведении */
+.custom-table tbody tr:hover {
+    transform: scale(1.01);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
+.results-summary {
+    background: #ffffff;
+    border-left: 5px solid #3a86ff;
+    padding: 15px 20px;
+    border-radius: 10px; /* Твои любимые закругления */
+    margin-bottom: 25px;
+    box-shadow: 0 4px 12px rgba(58, 134, 255, 0.1);
+    font-size: 1.1rem;
+}
+
+#stats-value {
+    font-weight: 800;
+    font-family: 'Montserrat', sans-serif;
+}
+
+
+/* 9. ПАКЕТНАЯ ВЫДАЧА (РЕЗУЛЬТАТЫ) */
+
+/* Контейнер для всех карточек */
+#results-container {
+    display: flex;
+    flex-direction: column;
+    gap: 40px; /* Большой отступ между разными фразами */
+    margin-top: 30px;
+}
+
+/* Карточка для одной фразы */
+.phrase-result-block {
+    background: var(--bg-card);
+    border-radius: var(--radius-xl);
+    padding: 30px;
+    box-shadow: var(--shadow-main);
+    border: 1px solid var(--border-soft);
+    animation: slideIn 0.6s var(--transition) forwards;
+}
+
+/* Заголовок фразы внутри карточки */
+.phrase-result-block h2 {
+    font-size: 1.8rem;
+    font-weight: 800;
+    color: var(--text-main);
+    margin-bottom: 25px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.phrase-result-block h2::before {
+    content: "🔎"; /* Иконка перед фразой */
+    font-size: 1.4rem;
+}
+
+/* Обертка для графиков */
+.chart-wrapper {
+    background: #f8f9fa;
+    border-radius: var(--radius-xl);
+    padding: 20px;
+    margin-bottom: 30px;
+    border: 1px solid var(--border-soft);
+    /* Chart.js требует фиксированную высоту или контейнер */
+    height: 450px; 
+    position: relative;
+}
+
+/* Кнопки управления результатами */
+.results-controls {
+    display: flex;
+    justify-content: flex-end;
+    gap: 15px;
+    margin-bottom: 30px;
+}
+
+/* Таблицы внутри блоков (переиспользуем твой стиль .custom-table) */
+.phrase-result-block .results-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0 8px;
+}
+
+/* Перебиваем стили для таблиц внутри пакета, чтобы они выглядели как твои custom-table */
+.results-table th {
+    padding: 12px 20px;
+    color: var(--text-muted);
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+}
+
+.results-table td {
+    background: #f8f9fa;
+    padding: 15px 20px;
+    border: none;
+    font-weight: 600;
+}
+
+.results-table td:first-child {
+    border-radius: 15px 0 0 15px;
+}
+
+.results-table td:last-child {
+    border-radius: 0 15px 15px 0;
+    color: var(--primary);
+    text-align: right;
+}
+
+.results-table tr:hover td {
+    background: var(--accent-light);
+    transform: scale(1.005);
+    transition: var(--transition);
+}
+
+.results-controls .btn {
+    padding: 10px 20px;
+    cursor: pointer;
+    border-radius: 8px; /* Округлим для стиля */
+}
+/* Растягиваем сам контейнер страницы, если он узкий */
+#cabinet .container {
+    max-width: 100% !important;
+    width: 100% !important;
+    padding: 0 20px;
+}
+
+/* Убираем внутренние отступы у карточки, чтобы таблица касалась краев */
+#cabinet .card {
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 20px 0;
+    border-radius: 12px;
+    overflow: hidden; /* Чтобы скруглить углы таблицы под карточку */
+}
+
+/* Настройка самой таблицы */
+.results-table {
+    width: 100% !important;
+    min-width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed; /* Критично для фиксации колонок */
+}
+
+/* Оформление строк */
+.results-table th, 
+.results-table td {
+    padding: 18px 25px !important; /* Увеличим отступы для солидности */
+    text-align: left;
+    border-bottom: 1px solid #f0f4f8;
+}
+
+
+
+/* Сделаем заголовок чуть серым для контраста */
+.results-table thead th {
+    background-color: #fafbfc;
+    color: #8898aa;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+/* Контейнер */
+.custom-select-container {
+    position: relative;
+    width: 100%;
+}
+
+/* Фасад (имитация твоего инпута/селекта) */
+.select-facade {
+    width: 100%;
+    padding: 12px 25px;
+    border: 2px solid var(--border-soft);
+    border-radius: var(--radius-lg); /* Твои 40px */
+    background-color: var(--bg-card);
+    font-family: 'Montserrat', sans-serif;
+    font-size: 1rem;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: var(--transition);
+    box-sizing: border-box;
+}
+
+.select-facade:hover {
+    border-color: var(--primary);
+}
+
+/* Стрелочка как у стандартного селекта */
+.select-arrow::after {
+    content: "▼";
+    font-size: 0.7rem;
+    color: var(--text-muted);
+}
+
+/* Выпадающий список */
+.select-dropdown-list {
+    display: none;
+    position: absolute;
+    top: calc(100% + 5px);
+    left: 0;
+    right: 0;
+    background: white;
+    border: 2px solid var(--border-soft);
+    border-radius: 15px; /* Аккуратное скругление списка */
+    max-height: 250px;
+    overflow-y: auto;
+    z-index: 100;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+}
+
+.select-dropdown-list.show {
+    display: block;
+}
+
+/* Элемент списка (Регион) */
+.region-option {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 20px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+/* ВЫДЕЛЕНИЕ ПРИ НАВЕДЕНИИ КУРСОРМ */
+.region-option:hover {
+    background-color: var(--primary); /* Твой фирменный синий */
+    color: white; /* Текст становится белым */
+}
+
+/* Настройка чекбокса внутри */
+.region-option input[type="checkbox"] {
+    cursor: pointer;
+    width: 18px;
+    height: 18px;
+    accent-color: var(--primary);
+}
+
+/* Если мы навели на строку, чекбокс должен выглядеть контрастно */
+.region-option:hover input[type="checkbox"] {
+    accent-color: #fff;
 }

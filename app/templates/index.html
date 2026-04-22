@@ -4,13 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Вордстат</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/png" href="/static/favicon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
+
 </head>
 <body>
-
     <nav>
         <div class="nav-container">
             <div class="logo" onclick="showPage('home')">Wordstat Анализатор</div>
@@ -41,13 +41,13 @@
                 <h2>Вход</h2>
                 <div class="input-field">
                     <label>Ваш Email</label>
-                    <input type="email" placeholder="example@mail.ru">
+                    <input type="email" id="login-email" placeholder="example@mail.ru">
                 </div>
                 <div class="input-field">
                     <label>Пароль</label>
-                    <input type="password" placeholder="••••••••">
+                    <input type="password" id="login-password" placeholder="••••••••">
                 </div>
-                <button class="btn-primary full-width" onclick="showPage('cabinet')">Войти</button>
+                <button class="btn-primary full-width" onclick="loginUser()">Войти</button>
                 <p class="auth-footer">Нет аккаунта? <a href="#" onclick="showPage('register')">Создать профиль</a></p>
             </div>
         </section>
@@ -57,17 +57,17 @@
                 <h2>Регистрация</h2>
                 <div class="input-field">
                     <label>Имя пользователя</label>
-                    <input type="text" placeholder="Иван Иванов">
+                    <input type="text" id="reg-fullname" placeholder="Иван Иванов">
                 </div>
                 <div class="input-field">
-                    <label>Email</label>
-                    <input type="email" placeholder="test@test.ru">
+                    <label>Логин (Email)</label>
+                    <input type="email" id="reg-login" placeholder="test@test.ru">
                 </div>
                 <div class="input-field">
                     <label>Пароль</label>
-                    <input type="password" placeholder="Минимум 8 символов">
+                    <input type="password" id="reg-password" placeholder="Минимум 8 символов">
                 </div>
-                <button class="btn-primary full-width" onclick="showPage('login')">Зарегистрироваться</button>
+                <button class="btn-primary full-width" onclick="registerUser()">Зарегистрироваться</button>
                 <p class="auth-footer">Уже есть аккаунт? <a href="#" onclick="showPage('login')">Войти</a></p>
             </div>
         </section>
@@ -75,73 +75,121 @@
         <section id="tool" class="page">
             <div class="tool-header">
                 <h2>Настройка анализа</h2>
-                <p>Введите ключевые слова и выберите параметры фильтрации</p>
             </div>
             <div class="card grid-2">
                 <div class="input-area">
                     <label>Список запросов</label>
-                    <textarea placeholder="Введите запросы, каждый с новой строки..."></textarea>
-                </div>
+                    <textarea id="query-input" placeholder="Введите запросы, каждый с новой строки или через запятую..."></textarea>
+                </div>   
                 <div class="settings-area">
                     <div class="input-field">
-                        <label>Регион поиска</label>
-                        <select>
-                            <option>Россия (вся)</option>
-                            <option>Москва</option>
-                            <option>СНГ</option>
+                        <label for="query-type">Тип запроса</label>
+                        <select id="query-type" class="full-width" onchange="toggleExtraOptions()">
+                            <option value="top">Топ запросов</option>
+                            <option value="dynamics">Динамика запросов</option>
+                            <option value="regions">Регионы</option> 
                         </select>
                     </div>
-
-                    <div class="input-field">
-                        <label>Тип устройств (можно несколько)</label>
-                        <div class="device-selector">
-                            <div class="device-chip active" onclick="toggleDevice(this)">Все</div>
-                            <div class="device-chip" onclick="toggleDevice(this)">Десктоп</div>
-                            <div class="device-chip" onclick="toggleDevice(this)">Планшеты</div>
-                            <div class="device-chip" onclick="toggleDevice(this)">Телефоны</div>
+                    <div class="input-field" id="region-details-block" style="display: none;">
+                        <label for="region-type-select">Детализация регионов</label>
+                        <select id="region-type-select" class="full-width">
+                            <option value="all">Все (All)</option>
+                            <option value="regions">Регионы (Regions)</option>
+                            <option value="cities">Города (Cities)</option>
+                        </select>
+                    </div>
+                    
+                    <div id="dynamics-details-block" style="display: none;">
+                        <div class="input-field">
+                            <label for="period-type-select">Группировка по времени</label>
+                            <select id="period-type-select" class="full-width" onchange="updateDateConstraints()">
+                                <option value="daily">По дням</option>
+                                <option value="weekly">По неделям</option>
+                                <option value="monthly" selected>По месяцам</option>
+                            </select>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                            <div class="input-field">
+                                <label>Дата начала</label>
+                                <input type="date" id="date-from" class="full-width">
+                            </div>
+                            <div class="input-field">
+                                <label>Дата конца</label>
+                                <input type="date" id="date-to" class="full-width">
+                            </div>
                         </div>
                     </div>
 
                     <div class="input-field">
-                        <label>Период данных</label>
-                        <input type="month">
+                        <label>Регионы</label>
+                        <div class="custom-select-container" id="region-dropdown">
+                            <div class="select-facade" onclick="toggleRegions()">
+                                <span id="selected-regions-label">Все регионы</span>
+                                <span class="select-arrow"></span>
+                            </div>
+
+                            <div class="select-dropdown-list" id="regions-list">
+                                <div class="loader-simple" style="margin: 20px auto;"></div>
+                            </div>
+                        </div>
                     </div>
-                    <button class="btn-primary full-width" style="margin-top: 20px;">Запустить</button>
+
+                    <div class="input-field">
+                        <label>Тип устройств</label>
+                        <div class="device-selector">
+                            <div class="device-chip active" data-device="all" onclick="toggleDevice(this)">Все</div>
+                            <div class="device-chip" data-device="desktop" onclick="toggleDevice(this)">Десктоп</div>
+                            <div class="device-chip" data-device="tablet" onclick="toggleDevice(this)">Планшеты</div>
+                            <div class="device-chip" data-device="mobile" onclick="toggleDevice(this)">Телефоны</div>
+                        </div>
+                    </div>
+                   <button class="btn-primary full-width" style="margin-top: 20px;" onclick="runAnalysis()">Запустить анализ</button>
                 </div>
             </div>
         </section>
 
+        <section id="results" class="page"> <div class="container">
+            
+                 <div class="results-controls">
+                    <!-- <h1>Результаты анализа</h1> -->
+                    <button onclick="showPage('tool')" class="btn secondary">← Назад</button>
+                    <button onclick="downloadExcel()" class="btn primary">Скачать в Excel</button>
+                </div>
+            <div id="results-container"></div> 
+            </div>
+            </div>
+
+        </section>
         <section id="cabinet" class="page">
             <div class="tool-header">
-                <h2>История запросов</h2>
+                <h2>История ваших запросов</h2>
+                <p>Здесь хранятся все ранее выполненные анализы</p>
             </div>
+            
             <div class="card">
-                <table class="custom-table">
+                <table class="results-table">
                     <thead>
                         <tr>
                             <th>Дата</th>
-                            <th>Ключевые слова</th>
-                            <th>Результат</th>
+                            <th>Тип</th>
+                            <th>Поисковые фразы</th>
+                            <th style="text-align: right;">Действие</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody id="history-tbody">
                         <tr>
-                            <td>05 апр 2026</td>
-                            <td><strong>Купить MacBook Air</strong> + 5 запросов</td>
-                            <td><button class="btn-table">Скачать .XLSX</button></td>
-                        </tr>
-                        <tr>
-                            <td>03 апр 2026</td>
-                            <td><strong>Python разработка</strong></td>
-                            <td><button class="btn-table">Скачать .XLSX</button></td>
+                            <td colspan="4" style="text-align:center; padding:40px;">
+                                <div class="loader-simple">Загрузка истории...</div>
+                            </td>
                         </tr>
                     </tbody>
                 </table>
             </div>
         </section>
-
     </main>
-
-    <script src="script.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="/static/script.js"></script>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
 </body>
 </html>

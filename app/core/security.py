@@ -22,7 +22,7 @@ def get_password_hash(password: str) -> str:
 
 def create_access_token(data: dict):
     to_encode = data.copy()
-    # Устанавливаем срок годности ]
+    # Устанавливаем срок годности
     expire = datetime.now(timezone.utc) + timedelta(
         minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
@@ -32,7 +32,6 @@ def create_access_token(data: dict):
     return encoded_jwt
 
 
-# Эта штука говорит Swagger, где брать токен
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 

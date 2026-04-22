@@ -2,22 +2,22 @@ from pydantic import BaseModel, ConfigDict
 from typing import Optional
 
 
-# 1. Схема для регистрации
 class UserCreate(BaseModel):
+    """Схема для регистрации пользователя"""
     login: str
     password: str
     full_name: str
-    role_id: int = 1  # По умолчанию назначаем базовую роль
+    role_id: int = 2  # По умолчанию назначаем роль пользователя
 
 
-# 2. Схема для обновления данных пользователя
 class UserUpdate(BaseModel):
+    """Схема для обновления данных пользователя"""
     full_name: Optional[str] = None
     password: Optional[str] = None
 
 
-# 3. Схема ответа
 class UserResponse(BaseModel):
+    """Схема ответа пользователя"""
     id: int
     login: str
     full_name: str

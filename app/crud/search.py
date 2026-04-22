@@ -1,3 +1,4 @@
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import SearchPhrase, TopRequest, TopRequestItem, Dynamics, \
@@ -7,27 +8,75 @@ from datetime import datetime
 
 async def get_or_create_phrase(db: AsyncSession, phrase_text: str,
                                user_id: int) -> int:
-    result = await db.execute(
-        select(SearchPhrase).where(SearchPhrase.phrase == phrase_text))
-    db_phrase = result.scalar_one_or_none()
-    if not db_phrase:
-        db_phrase = SearchPhrase(phrase=phrase_text, user_id=user_id)
-        db.add(db_phrase)
-        await db.flush()
-    return db_phrase.id
+    # Сначала пытаемся просто найти фразу
+    stmt = select(SearchPhrase).where(SearchPhrase.phrase == phrase_text)
+    result = await db.execute(stmt)
+    phrase = result.scalars().first()
+
+    if phrase:
+        return phrase.id
+
+    # Если не нашли, пробуем создать
+    new_phrase = SearchPhrase(phrase=phrase_text, user_id=user_id)
+    db.add(new_phrase)
+
+    try:
+        # Пытаемся зафиксировать запись
+        await db.commit()
+        return new_phrase.id
+    except IntegrityError:
+        await db.rollback()
+
+        stmt = select(SearchPhrase).where(SearchPhrase.phrase == phrase_text)
+        result = await db.execute(stmt)
+        phrase = result.scalars().first()
+        return phrase.id
 
 
 # 1. Сохранение ТОПов
-async def save_search_result(db: AsyncSession, user_id: int, phrase_text: str,
-                             yandex_data: dict, group_id: int):
+async def save_search_result(
+        db: AsyncSession,
+        user_id: int,
+        phrase_text: str,
+        yandex_data: dict,
+        group_id: int,
+        device_ids: list[int] = None,
+        region_ids: list[int] = None,
+):
     phrase_id = await get_or_create_phrase(db, phrase_text, user_id)
 
+    # Получаем объекты регионов из БД
+    selected_regions = []
+    if region_ids:
+        result = await db.execute(
+            select(Region).where(Region.id.in_(region_ids))
+        )
+        selected_regions = result.scalars().all()
+
+    # Если выбрано all (4) или ничего не выбрано, то считаем, что выбраны все устройства
+    is_all = device_ids and (
+                4 in device_ids or set([1, 2, 3]).issubset(set(device_ids)))
+
+    # Присваиваем ID устройств или None
+    d1_id = 1 if (is_all or (device_ids and 1 in device_ids)) else None
+    d2_id = 2 if (is_all or (device_ids and 2 in device_ids)) else None
+    d3_id = 3 if (is_all or (device_ids and 3 in device_ids)) else None
+
+    # Передаем ID во внешние ключи (колонки с окончанием _id)
     db_top_request = TopRequest(
         group_id=group_id,
         search_phrase_id=phrase_id,
         user_id=user_id,
-        total_count=yandex_data.get("totalCount", 0)
+        total_count=yandex_data.get("totalCount", 0),
+        device1_id=d1_id,
+        device2_id=d2_id,
+        device3_id=d3_id,
+        regions=selected_regions
     )
+
+    print(f"DEBUG: IDs from request: {region_ids}")
+    print(f"DEBUG: Found regions objects: {[r.id for r in selected_regions]}")
+
     db.add(db_top_request)
     await db.flush()
 
@@ -35,10 +84,12 @@ async def save_search_result(db: AsyncSession, user_id: int, phrase_text: str,
     for item in items:
         new_item = TopRequestItem(
             top_request_id=db_top_request.id,
+            search_phrase_id=phrase_id,
             phrase=item.get("phrase"),
             count=item.get("count", 0)
         )
         db.add(new_item)
+
     await db.commit()
 
 
@@ -49,7 +100,9 @@ async def save_dynamics_result(
         phrase_text: str,
         yandex_data: dict,
         group_id: int,
-        params: dict
+        params: dict,
+        device_ids: list[int] = None,
+        region_ids: list[int] = None
 ):
     phrase_id = await get_or_create_phrase(db, phrase_text, user_id)
 
@@ -58,19 +111,37 @@ async def save_dynamics_result(
     else:
         to_dt = datetime.now().date()
 
-    # 3. Создаем запись в таблице dynamics
+    selected_regions = []
+    if region_ids:
+        res = await db.execute(
+            select(Region).where(Region.id.in_(region_ids)))
+        selected_regions = res.scalars().all()
+
+    # Логика распределения девайсов
+    is_all = device_ids and (
+                    4 in device_ids or {1, 2, 3}.issubset(set(device_ids)))
+
+    d1_id = 1 if (is_all or (device_ids and 1 in device_ids)) else None
+    d2_id = 2 if (is_all or (device_ids and 2 in device_ids)) else None
+    d3_id = 3 if (is_all or (device_ids and 3 in device_ids)) else None
+
+    # 3Создаем запись в таблице dynamics
     db_dynamics = Dynamics(
         group_id=group_id,
         search_phrase_id=phrase_id,
         user_id=user_id,
         from_date=datetime.strptime(params["from_date"], "%Y-%m-%d").date(),
         to_date=to_dt,
-        period=params["period"]
+        period=params["period"],
+        device1_id=d1_id,
+        device2_id=d2_id,
+        device3_id=d3_id,
+        regions=selected_regions
     )
     db.add(db_dynamics)
     await db.flush()
 
-    # 4. Сохраняем точки из ответа Яндекса
+    # Сохраняем точки из ответа Яндекса
     points = yandex_data.get("dynamics", [])
 
     for p in points:
@@ -78,7 +149,8 @@ async def save_dynamics_result(
             dynamics_id=db_dynamics.id,
             point_date=datetime.strptime(p.get("date"), "%Y-%m-%d").date(),
             count=p.get("count", 0),
-            share=p.get("share", 0.0)
+            share=p.get("share", 0.0),
+            search_phrase_id=phrase_id
         )
         db.add(new_point)
     await db.commit()
@@ -91,29 +163,36 @@ async def save_regions_result(
         phrase_text: str,
         yandex_data: dict,
         group_id: int,
-        region_type: str
+        region_type: str,
+        device_ids: list[int] = None
 ):
-    # 1. Получаем ID фразы
     phrase_id = await get_or_create_phrase(db, phrase_text, user_id)
 
-    # 2. Создаем "шапку" запроса
+    is_all = device_ids and (
+                    4 in device_ids or {1, 2, 3}.issubset(set(device_ids)))
+
+    d1_id = 1 if (is_all or (device_ids and 1 in device_ids)) else None
+    d2_id = 2 if (is_all or (device_ids and 2 in device_ids)) else None
+    d3_id = 3 if (is_all or (device_ids and 3 in device_ids)) else None
+
     db_reg_req = RegionsRequest(
         group_id=group_id,
         user_id=user_id,
         search_phrase_id=phrase_id,
-        region_type=region_type
+        region_type=region_type,
+        device1_id=d1_id,
+        device2_id=d2_id,
+        device3_id=d3_id
     )
     db.add(db_reg_req)
     await db.flush()
 
-    # 3. Сохраняем элементы
     regions_list = yandex_data.get("regions", [])
     for reg in regions_list:
         r_id = reg.get("regionId")
         if not r_id:
             continue
 
-        # Проверяем, есть ли такой регион в базе
         db_region = await db.get(Region, r_id)
         if not db_region:
             r_name = reg.get("regionName", f"Регион {r_id}")
@@ -126,7 +205,7 @@ async def save_regions_result(
             search_phrase_id=phrase_id,
             region_id=r_id,
             count=reg.get("count", 0),
-            share=reg.get("share", 0.0),
+            share=min(float(reg.get("share", 0.0)), 1.0),
             affinity_index=reg.get("affinityIndex")
         )
         db.add(new_item)
