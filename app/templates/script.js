@@ -924,7 +924,6 @@ async function initializeRegions() {
 
 // 3. Чтобы можно было кликнуть на всю строку, а не только на квадратик чекбокса
 function handleRegionClick(event, element) {
-    // Если кликнули не на сам чекбокс (чтобы не было двойного срабатывания)
     if (event.target.type !== 'checkbox') {
         const cb = element.querySelector('.region-checkbox');
         cb.checked = !cb.checked;
