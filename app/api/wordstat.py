@@ -194,7 +194,6 @@ async def download_excel(
         item_id: int,
         type: str,
         db: AsyncSession = Depends(get_db),
-        current_user: User = Depends(get_current_user)
 ):
     try:
         data_for_excel = []

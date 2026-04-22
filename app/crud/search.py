@@ -8,7 +8,7 @@ from datetime import datetime
 
 async def get_or_create_phrase(db: AsyncSession, phrase_text: str,
                                user_id: int) -> int:
-    # 1. Сначала пытаемся просто найти фразу
+    # Сначала пытаемся просто найти фразу
     stmt = select(SearchPhrase).where(SearchPhrase.phrase == phrase_text)
     result = await db.execute(stmt)
     phrase = result.scalars().first()
@@ -16,7 +16,7 @@ async def get_or_create_phrase(db: AsyncSession, phrase_text: str,
     if phrase:
         return phrase.id
 
-    # 2. Если не нашли, пробуем создать
+    # Если не нашли, пробуем создать
     new_phrase = SearchPhrase(phrase=phrase_text, user_id=user_id)
     db.add(new_phrase)
 

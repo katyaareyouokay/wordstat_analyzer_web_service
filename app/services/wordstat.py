@@ -48,7 +48,7 @@ class YandexWordstatService:
             if 4 in devices or not devices:
                 json_data["devices"] = ["all"]
             else:
-                # Сопоставляем ваши ID (1,2,3) со строками Яндекса
+                # Сопоставляем ID со строками Яндекса
                 dev_mapping = {1: "phone", 2: "desktop", 3: "tablet"}
                 selected_devs = [dev_mapping[d] for d in devices if
                                  d in dev_mapping]
