@@ -125,7 +125,7 @@ async def save_dynamics_result(
     d2_id = 2 if (is_all or (device_ids and 2 in device_ids)) else None
     d3_id = 3 if (is_all or (device_ids and 3 in device_ids)) else None
 
-    # 3Создаем запись в таблице dynamics
+    # Создаем запись в таблице dynamics
     db_dynamics = Dynamics(
         group_id=group_id,
         search_phrase_id=phrase_id,
