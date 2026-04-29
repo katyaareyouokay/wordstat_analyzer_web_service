@@ -495,7 +495,7 @@ async function renderMultipleResults(results, type) {
                                 <tr>
                                     <td>${i.regionName || 'Регион ' + i.regionId}</td>
                                     <td>${(i.count || 0).toLocaleString()}</td>
-                                    <td>${((i.share || 0) * 100).toFixed(2)}%</td>
+                                    <td>${((i.share || 0) * 100).toFixed(4)}</td>
                                     <td>${(i.affinityIndex || 0).toFixed(0)}%</td>
                                 </tr>
                             `).join('')}
@@ -767,7 +767,7 @@ function downloadExcel() {
             // ШАБЛОН РЕГИОНОВ
             dataRows = items.map(i => ({
                 "Запрос": phrase,
-                "Регион": i.region?.label || i.label || `ID ${i.regionId || i.region_id}`,
+                "Регион": i.regionName || i.region?.label || i.label || `ID ${i.regionId || i.region_id}`,
                 "Число запросов": i.count,
                 "Доля %": (parseFloat(i.share || 0) * 100).toFixed(4),
                 "Affinity Index": (i.affinity_index || i.affinityIndex || 0).toFixed(0) + "%"

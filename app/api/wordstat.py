@@ -224,16 +224,25 @@ async def download_excel(
         # Логика для регионов
         elif type == "Регионы":
             stmt = (
-                select(RegionsRequestItem)
-                .options(joinedload(RegionsRequestItem.region))
+                select(
+                    RegionsRequestItem,
+                    Region.label.label("region_label")
+                )
+                .join(Region, Region.id == RegionsRequestItem.region_id)
                 .where(RegionsRequestItem.regions_requests_id == item_id)
             )
+
             res = await db.execute(stmt)
-            items = res.scalars().all()
+            rows = res.all()
+
             data_for_excel = [
-                {"Регион": i.region.label, "Количество": i.count,
-                 "Доля": i.share, "Affinity": i.affinity_index}
-                for i in items
+                {
+                    "Регион": row.region_label,
+                    "Количество": row.RegionsRequestItem.count,
+                    "Доля": row.RegionsRequestItem.share,
+                    "Affinity": row.RegionsRequestItem.affinity_index
+                }
+                for row in rows
             ]
             filename = f"regions_{item_id}.xlsx"
 
