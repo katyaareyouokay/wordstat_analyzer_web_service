@@ -716,3 +716,26 @@ textarea {
 .region-option:hover input[type="checkbox"] {
     accent-color: #fff;
 }
+
+#regions-list {
+    display: none;
+    max-height: 400px;
+    overflow-y: auto;
+    /* другие ваши стили */
+}
+
+.search-container {
+    position: sticky; /* Прилипает к верху при скролле */
+    top: 0;
+    background: white;
+    padding: 10px;
+    z-index: 10;
+    border-bottom: 1px solid #eee;
+}
+
+#region-search {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
