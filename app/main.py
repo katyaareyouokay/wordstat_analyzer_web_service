@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
-from app.api import auth, wordstat
+from app.api import auth, wordstat, statistics
 from app.core.database import AsyncSessionLocal
 
 # Настройки путей
@@ -36,8 +36,9 @@ app.add_middleware(
 )
 
 # Подключение роутеров и статики
-app.include_router(auth.router, prefix="/auth", tags=["Auth"])
+app.include_router(auth.router)
 app.include_router(wordstat.router, prefix="/wordstat", tags=["Wordstat"])
+app.include_router(statistics.router)
 
 # Монтируем статику
 if os.path.exists(TEMPLATES_DIR):
