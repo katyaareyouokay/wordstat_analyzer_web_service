@@ -129,7 +129,12 @@
                             </div>
 
                             <div class="select-dropdown-list" id="regions-list">
-                                <div class="loader-simple" style="margin: 20px auto;"></div>
+                                <div class="search-wrapper">
+                                    <input type="text" id="region-search" placeholder="Поиск региона..." oninput="filterRegions()">
+                                </div>
+                                <div id="regions-options-container">
+                                    <div class="loader-simple" style="margin: 20px auto;"></div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -148,16 +153,18 @@
             </div>
         </section>
 
-        <section id="results" class="page"> <div class="container">
+        <section id="results" class="page"> 
+            <div class="container">
             
-                 <div class="results-controls">
+                <div class="results-controls">
                     <!-- <h1>Результаты анализа</h1> -->
                     <button onclick="showPage('tool')" class="btn secondary">← Назад</button>
                     <button onclick="downloadExcel()" class="btn primary">Скачать в Excel</button>
                 </div>
-            <div id="results-container"></div> 
+                <div id="analysis-results-container"></div>
+                <div id="results-container"></div> 
             </div>
-            </div>
+        
 
         </section>
         <section id="cabinet" class="page">

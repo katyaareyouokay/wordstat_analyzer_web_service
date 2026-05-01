@@ -1,38 +1,42 @@
 function toggleExtraOptions() {
-
     const queryType = document.getElementById('query-type').value;
     
     const dynamicsBlock = document.getElementById('dynamics-details-block');
     const regionDetailsBlock = document.getElementById('region-details-block');
     const fullRegionSelectBlock = document.getElementById('full-region-select-block');
 
-
-    if (typeof selectedRegions !== 'undefined') {
-        selectedRegions = []; 
+    // 1. Очищаем данные в Set
+    if (typeof selectedRegionIds !== 'undefined') {
+        selectedRegionIds.clear(); 
     }
 
+    // 2. Сбрасываем текст на плашке
     const label = document.getElementById('selected-regions-label');
     if (label) {
         label.textContent = 'Все регионы';
     }
 
-    const checkboxes = document.querySelectorAll('#regions-list input[type="checkbox"]');
-    checkboxes.forEach(cb => cb.checked = false);
+    // 3. Очищаем поле поиска
+    const searchInput = document.getElementById('region-search');
+    if (searchInput) {
+        searchInput.value = '';
+    }
+
+    if (typeof renderRegions === 'function') {
+        renderRegions();
+    }
 
     if (queryType === 'dynamics') {
-        dynamicsBlock.style.display = 'block';
+        if (dynamicsBlock) dynamicsBlock.style.display = 'block';
     } else {
-        dynamicsBlock.style.display = 'none';
+        if (dynamicsBlock) dynamicsBlock.style.display = 'none';
     }
 
     if (queryType === 'regions') {
         if (regionDetailsBlock) regionDetailsBlock.style.display = 'block'; 
-
         if (fullRegionSelectBlock) fullRegionSelectBlock.style.display = 'none';
     } else {
-
         if (regionDetailsBlock) regionDetailsBlock.style.display = 'none';
-        
         if (fullRegionSelectBlock) fullRegionSelectBlock.style.display = 'block';
     }
 }
@@ -407,6 +411,15 @@ async function renderMultipleResults(results, type) {
         section.className = 'phrase-result-block';
         section.innerHTML = `<h2>Результаты: ${phrase}</h2>`;
 
+        if (type === 'top') {
+            const chartWrapper = document.createElement('div');
+            chartWrapper.className = 'chart-wrapper';
+            chartWrapper.style.height = '300px'; 
+            chartWrapper.style.marginBottom = '20px';
+            chartWrapper.innerHTML = `<canvas id="bubble-chart-${index}"></canvas>`;
+            section.appendChild(chartWrapper);
+        }
+
         if (type === 'dynamics') {
             const chartWrapper = document.createElement('div');
             chartWrapper.className = 'chart-wrapper'; // Используем класс из CSS
@@ -421,8 +434,17 @@ async function renderMultipleResults(results, type) {
 
         if (type === 'top') {
             thead.innerHTML = `<tr><th>Фраза</th><th>Запросы</th></tr>`;
-            tbody.innerHTML = items.slice(0, 50).map(i => `<tr><td>${i.phrase || '---'}</td><td>${(i.count || 0).toLocaleString()}</td></tr>`).join('');
-        } 
+            tbody.innerHTML = items.slice(0, 50).map(i => `
+                <tr>
+                    <td>${i.phrase || '---'}</td>
+                    <td>${(i.count || 0).toLocaleString()}</td>
+                </tr>`).join('');
+            
+            // Инициализация пузырьков
+            setTimeout(() => {
+                renderSingleBubbleChart(`bubble-chart-${index}`, items);
+            }, 100);
+        }
         else if (type === 'dynamics') {
             thead.innerHTML = `<tr><th>Период</th><th>Запросы</th><th>Доля %</th></tr>`;
             tbody.innerHTML = items.map(i => {
@@ -504,7 +526,8 @@ async function renderMultipleResults(results, type) {
                 `;
         }
 
-        table.appendChild(thead); table.appendChild(tbody);
+        table.appendChild(thead); 
+        table.appendChild(tbody);
         section.appendChild(table);
         container.appendChild(section);
     });
@@ -531,9 +554,56 @@ function renderSingleDynamicsChart(canvasId, items) {
 
 // Вспомогательная функция для пакетных пузырьков
 function renderSingleBubbleChart(canvasId, items) {
-    const ctx = document.getElementById(canvasId).getContext('2d');
-    // ... логика группировки интентов (как мы писали выше) ...
-    // Создаем новый Chart и пушим в activeCharts
+    const canvas = document.getElementById(canvasId);
+    if (!canvas || !items.length) return;
+    const ctx = canvas.getContext('2d');
+
+    // 1. Берем ТОП-20 фраз, чтобы не перегружать график
+    const topItems = items.slice(0, 20);
+
+    // 2. Формируем данные: каждый пузырек — это отдельная фраза
+    const chartData = {
+        datasets: [{
+            label: 'Фразы',
+            data: topItems.map((item, index) => ({
+                x: index + 1, // Просто позиция по порядку
+                y: item.count || 0,
+                r: Math.min(Math.max(Math.sqrt(item.count || 0) / 2, 5), 35) // Масштаб радиуса
+            })),
+            backgroundColor: topItems.map((_, i) => `hsla(${200 + i * 10}, 70%, 60%, 0.6)`), // Разные оттенки
+            borderColor: 'rgba(0,0,0,0.1)',
+            borderWidth: 1
+        }]
+    };
+
+    const newChart = new Chart(ctx, {
+        type: 'bubble',
+        data: chartData,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: { display: false }, // Скрываем техническую ось X
+                y: { 
+                    beginAtZero: true,
+                    title: { display: true, text: 'Количество запросов' }
+                }
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: (ctx) => {
+                            const item = topItems[ctx.dataIndex];
+                            return ` ${item.phrase}: ${item.count.toLocaleString()}`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    if (window.activeCharts) window.activeCharts.push(newChart);
 }
 
 function renderDoubleChart(canvasId, items, label) {
@@ -821,98 +891,10 @@ async function downloadFromHistory(phrase, type) {
     }
 }
 
-// Вспомогательная функция для отрисовки пузырьков в пакетном режиме
-function renderSingleBubbleChart(canvasId, allPhrases) {
-    const canvas = document.getElementById(canvasId);
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
 
-    // 1. ГРУППИРУЕМ ДАННЫЕ
-    const groups = {
-        "Коммерческий": { x: 1, y: 0, count: 0 },
-        "Информационный": { x: 2, y: 0, count: 0 },
-        "Навигационный": { x: 3, y: 0, count: 0 },
-        "Прочий": { x: 4, y: 0, count: 0 }
-    };
-
-    allPhrases.forEach(item => {
-        // Проверка интента (приводим к эталону из объекта groups)
-        const intent = item.intent || "Прочий";
-        if (groups[intent]) {
-            groups[intent].y += (item.count || item.value || 0);
-            groups[intent].count += 1;
-        } else {
-            groups["Прочий"].y += (item.count || item.value || 0);
-            groups["Прочий"].count += 1;
-        }
-    });
-
-    // 2. ФОРМИРУЕМ ДАННЫЕ ДЛЯ CHART.JS
-    const chartData = Object.keys(groups).map(intent => ({
-        label: intent,
-        data: [{
-            x: groups[intent].x, 
-            y: groups[intent].y,
-            // Размер пузырька зависит от кол-ва фраз
-            r: Math.min(Math.max(groups[intent].count / 5, 8), 40) 
-        }]
-    }));
-
-    const colors = {
-        "Коммерческий": 'rgba(58, 134, 255, 0.7)',
-        "Информационный": 'rgba(96, 125, 139, 0.7)',
-        "Навигационный": 'rgba(255, 193, 7, 0.7)',
-        "Прочий": 'rgba(200, 200, 200, 0.7)'
-    };
-
-    // 3. ИНИЦИАЛИЗИРУЕМ ЧАРТ
-    const newChart = new Chart(ctx, {
-        type: 'bubble',
-        data: {
-            datasets: chartData.map(d => ({
-                ...d,
-                backgroundColor: colors[d.label] || colors["Прочий"],
-                borderColor: (colors[d.label] || colors["Прочий"]).replace('0.7', '1'),
-                borderWidth: 1
-            }))
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                x: {
-                    type: 'linear',
-                    position: 'bottom',
-                    ticks: {
-                        callback: (val) => ['', 'Коммерческий', 'Инфо', 'Навигатор', 'Прочее', ''][val] || '',
-                        stepSize: 1
-                    },
-                    min: 0, max: 5
-                },
-                y: {
-                    ticks: { callback: v => v.toLocaleString() },
-                    title: { display: true, text: 'Общая частотность' }
-                }
-            },
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    callbacks: {
-                        label: (ctx) => {
-                            const g = groups[ctx.dataset.label];
-                            return `${ctx.dataset.label}: ${g.count} фраз, Сумма: ${g.y.toLocaleString()}`;
-                        }
-                    }
-                }
-            }
-        }
-    });
-
-    // Сохраняем в массив для очистки при новом поиске
-    if (typeof activeCharts !== 'undefined') {
-        activeCharts.push(newChart);
-    }
-}
+// Блок связанный с чекбоксом regions
+let allRegions = []; // все регионы
+let selectedRegionIds = new Set(); // ID выбранных
 
 // 1. Функция открытия/закрытия
 function toggleRegions() {
@@ -929,50 +911,106 @@ window.addEventListener('click', function(e) {
 
 // 2. Загрузка регионов и вставка в список
 async function initializeRegions() {
-    const container = document.getElementById('regions-list');
-    const label = document.getElementById('selected-regions-label');
+    const container = document.getElementById('regions-options-container'); // рендерим теперь сюда
+    const token = localStorage.getItem('token');
 
     try {
-        const token = localStorage.getItem('token');
         const response = await fetch('/wordstat/regions/dict', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
-
-        const regions = await response.json();
-
-        if (regions.length > 0) {
-            container.innerHTML = regions.map(reg => `
-                <div class="region-option" onclick="handleRegionClick(event, this)">
-                    <input type="checkbox" value="${reg.id}" class="region-checkbox" onchange="updateRegionsLabel()">
-                    <span>${reg.label}</span>
-                </div>
-            `).join('');
-        }
+        allRegions = await response.json();
+        
+        renderRegions(); // Первая отрисовка
     } catch (err) {
-        container.innerHTML = '<div style="padding:20px;">Ошибка загрузки</div>';
+        if (container) container.innerHTML = '<div style="padding:20px;">Ошибка загрузки</div>';
     }
 }
 
-// 3. Чтобы можно было кликнуть на всю строку, а не только на квадратик чекбокса
-function handleRegionClick(event, element) {
-    if (event.target.type !== 'checkbox') {
-        const cb = element.querySelector('.region-checkbox');
-        cb.checked = !cb.checked;
-        updateRegionsLabel();
+function renderRegions() {
+    const container = document.getElementById('regions-options-container');
+    const searchTerm = document.getElementById('region-search').value.toLowerCase();
+
+    // 1. Фильтруем: теперь только те, что НАЧИНАЮТСЯ с введённых букв
+    let filtered = allRegions.filter(reg => 
+        reg.label.toLowerCase().startsWith(searchTerm)
+    );
+
+    // 2. Сортируем: выбранные в начало (этот блок оставляем без изменений)
+    filtered.sort((a, b) => {
+        const aChecked = selectedRegionIds.has(String(a.id));
+        const bChecked = selectedRegionIds.has(String(b.id));
+        return bChecked - aChecked; 
+    });
+
+    // 3. Отрисовка (оставляем как было)
+    container.innerHTML = filtered.map(reg => {
+        const isChecked = selectedRegionIds.has(String(reg.id));
+        return `
+            <div class="region-option ${isChecked ? 'is-selected' : ''}" 
+                 onclick="handleRegionClick(event, this, '${reg.id}')"
+                 style="display: flex; align-items: center; padding: 8px 12px; cursor: pointer;">
+                <input type="checkbox" value="${reg.id}" class="region-checkbox" 
+                       ${isChecked ? 'checked' : ''} 
+                       style="margin-right: 10px; pointer-events: none;">
+                <span>${reg.label}</span>
+            </div>
+        `;
+    }).join('');
+}
+
+function filterRegions() {
+    renderRegions();
+}
+
+// Синхронизация набора выбранных ID
+function syncSelection(id, isChecked) {
+    if (isChecked) {
+        selectedRegionIds.add(String(id));
+    } else {
+        selectedRegionIds.delete(String(id));
     }
+    updateRegionsLabel();
+}
+
+function handleRegionClick(event, element, id) {
+    event.stopPropagation();
+
+    const checkbox = element.querySelector('.region-checkbox');
+    const isNowChecked = !checkbox.checked;
+    
+    // Находим инпут поиска
+    const searchInput = document.getElementById('region-search');
+
+    if (isNowChecked) {
+        selectedRegionIds.add(String(id));
+    } else {
+        selectedRegionIds.delete(String(id));
+    }
+
+    checkbox.checked = isNowChecked;
+    
+    if (searchInput) {
+        searchInput.value = '';
+    }
+
+    updateRegionsLabel();
+
+    renderRegions();
 }
 
 // 4. Обновление текста (сколько выбрано)
 function updateRegionsLabel() {
-    const checked = document.querySelectorAll('.region-checkbox:checked');
     const label = document.getElementById('selected-regions-label');
+    const count = selectedRegionIds.size;
 
-    if (checked.length === 0) {
+    if (count === 0) {
         label.innerText = "Все регионы";
-    } else if (checked.length === 1) {
-        label.innerText = checked[0].parentElement.innerText.trim();
+    } else if (count === 1) {
+        const firstId = [...selectedRegionIds][0];
+        const reg = allRegions.find(r => String(r.id) === firstId);
+        label.innerText = reg ? reg.label : "Выбрано: 1";
     } else {
-        label.innerText = `Выбрано: ${checked.length}`;
+        label.innerText = `Выбрано: ${count}`;
     }
 }
 
