@@ -716,3 +716,25 @@ textarea {
 .region-option:hover input[type="checkbox"] {
     accent-color: #fff;
 }
+
+
+.quota-box {
+    background: #e3f2fd;
+    padding: 15px 20px;
+    border-radius: 12px;
+    border-left: 6px solid #1a73e8;
+    margin-top: 10px;
+    font-weight: 600;
+}
+.quota-value {
+    color: #1a73e8;
+    font-size: 1.4rem;
+    margin: 0 5px;
+}
+.blue-cell {
+    background-color: #f0f7ff !important;
+    font-weight: 600;
+}
+.table-responsive {
+    overflow-x: auto;
+}

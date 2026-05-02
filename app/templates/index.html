@@ -18,6 +18,7 @@
                 <a href="#" onclick="showPage('home')">Главная</a>
                 <a href="#" onclick="showPage('tool')">Инструмент</a>
                 <a href="#" onclick="showPage('cabinet')">История</a>
+                <a href="#" id="admin-link" style="display: none;" onclick="showPage('admin-stats')">Статистика</a>
                 <div class="auth-buttons">
                     <button class="btn-outline" onclick="showPage('login')">Вход</button>
                     <button class="btn-primary" onclick="showPage('register')">Регистрация</button>
@@ -27,7 +28,51 @@
     </nav>
 
     <main class="container">
-        
+        <section id="admin-stats" class="page">
+            <div class="tool-header">
+                <h2>Панель администратора</h2>
+                <div class="quota-box">
+                    Израсходованная квота за сегодня: 
+                    <span id="total-quota" class="quota-value">0</span> фраз
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Запросы за сегодня</h3>
+                <div class="table-responsive">
+                    <table class="results-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Логин</th>
+                                <th>Топ</th>
+                                <th>Динамика</th>
+                                <th>Регионы</th>
+                            </tr>
+                        </thead>
+                        <tbody id="today-stats-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card" style="margin-top: 30px;">
+                <h3>Запросы за все время</h3>
+                <div class="table-responsive">
+                    <table class="results-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Логин</th>
+                                <th>Топ</th>
+                                <th>Динамика</th>
+                                <th>Регионы</th>
+                            </tr>
+                        </thead>
+                        <tbody id="all-time-stats-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
         <section id="home" class="page active">
             <div class="hero">
                 <h1>Анализируй запросы</h1>
