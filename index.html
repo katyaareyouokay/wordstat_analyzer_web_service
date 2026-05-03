@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Вордстат</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <nav>
+        <div class="nav-container">
+            <div class="logo" onclick="showPage('home')">Wordstat Анализатор</div>
+            <div class="menu">
+                <a href="#" onclick="showPage('home')">Главная</a>
+                <a href="#" onclick="showPage('tool')">Инструмент</a>
+                <a href="#" onclick="showPage('cabinet')">История</a>
+                <div class="auth-buttons">
+                    <button class="btn-outline" onclick="showPage('login')">Вход</button>
+                    <button class="btn-primary" onclick="showPage('register')">Регистрация</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container">
+        
+        <section id="home" class="page active">
+            <div class="hero">
+                <h1>Анализируй запросы</h1>
+                <p>Автоматизируйте сбор данных из вордстата, стройте графики и выгружайте отчеты в Excel за пару кликов</p>
+                <button class="btn-lg" onclick="showPage('tool')">Попробовать</button>
+            </div>
+        </section>
+
+        <section id="login" class="page">
+            <div class="auth-card">
+                <h2>Вход</h2>
+                <div class="input-field">
+                    <label>Ваш Email</label>
+                    <input type="email" placeholder="example@mail.ru">
+                </div>
+                <div class="input-field">
+                    <label>Пароль</label>
+                    <input type="password" placeholder="••••••••">
+                </div>
+                <button class="btn-primary full-width" onclick="showPage('cabinet')">Войти</button>
+                <p class="auth-footer">Нет аккаунта? <a href="#" onclick="showPage('register')">Создать профиль</a></p>
+            </div>
+        </section>
+
+        <section id="register" class="page">
+            <div class="auth-card">
+                <h2>Регистрация</h2>
+                <div class="input-field">
+                    <label>Имя пользователя</label>
+                    <input type="text" placeholder="Иван Иванов">
+                </div>
+                <div class="input-field">
+                    <label>Email</label>
+                    <input type="email" placeholder="test@test.ru">
+                </div>
+                <div class="input-field">
+                    <label>Пароль</label>
+                    <input type="password" placeholder="Минимум 8 символов">
+                </div>
+                <button class="btn-primary full-width" onclick="showPage('login')">Зарегистрироваться</button>
+                <p class="auth-footer">Уже есть аккаунт? <a href="#" onclick="showPage('login')">Войти</a></p>
+            </div>
+        </section>
+
+        <section id="tool" class="page">
+            <div class="tool-header">
+                <h2>Настройка анализа</h2>
+                <p>Введите ключевые слова и выберите параметры фильтрации</p>
+            </div>
+            <div class="card grid-2">
+                <div class="input-area">
+                    <label>Список запросов</label>
+                    <textarea placeholder="Введите запросы, каждый с новой строки..."></textarea>
+                </div>
+                <div class="settings-area">
+                    <div class="input-field">
+                        <label>Регион поиска</label>
+                        <select>
+                            <option>Россия (вся)</option>
+                            <option>Москва</option>
+                            <option>СНГ</option>
+                        </select>
+                    </div>
+
+                    <div class="input-field">
+                        <label>Тип устройств (можно несколько)</label>
+                        <div class="device-selector">
+                            <div class="device-chip active" onclick="toggleDevice(this)">Все</div>
+                            <div class="device-chip" onclick="toggleDevice(this)">Десктоп</div>
+                            <div class="device-chip" onclick="toggleDevice(this)">Планшеты</div>
+                            <div class="device-chip" onclick="toggleDevice(this)">Телефоны</div>
+                        </div>
+                    </div>
+
+                    <div class="input-field">
+                        <label>Период данных</label>
+                        <input type="month">
+                    </div>
+                    <button class="btn-primary full-width" style="margin-top: 20px;">Запустить</button>
+                </div>
+            </div>
+        </section>
+
+        <section id="cabinet" class="page">
+            <div class="tool-header">
+                <h2>История запросов</h2>
+            </div>
+            <div class="card">
+                <table class="custom-table">
+                    <thead>
+                        <tr>
+                            <th>Дата</th>
+                            <th>Ключевые слова</th>
+                            <th>Результат</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>05 апр 2026</td>
+                            <td><strong>Купить MacBook Air</strong> + 5 запросов</td>
+                            <td><button class="btn-table">Скачать .XLSX</button></td>
+                        </tr>
+                        <tr>
+                            <td>03 апр 2026</td>
+                            <td><strong>Python разработка</strong></td>
+                            <td><button class="btn-table">Скачать .XLSX</button></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>

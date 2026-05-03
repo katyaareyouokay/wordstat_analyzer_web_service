@@ -1,0 +1,357 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap');
+
+:root {
+    --bg-page: #fffcf7;          /* Мягкий кремовый фон */
+    --bg-card: #ffffff;          /* Чистый белый для карточек */
+    --primary: #ff6eb4;          /* Основной розовый */
+    --primary-soft: #ff85c2;     /* Светло-розовый для градиентов */
+    --secondary: #ffcc33;        /* Солнечный желтый для акцентов */
+    --accent-light: #fff0f6;     /* Фон для второстепенных кнопок */
+    
+    --text-main: #4a3a4b;        
+    --text-muted: #9d8a9e;       
+    
+    /* Детали */
+    --border-soft: #f7eef7;
+    --radius-xl: 8px;           /* Большие скругления для карточек */
+    --radius-lg: 40px;           /* Скругления для кнопок и инпутов */
+    
+    /* Тени и анимации */
+    --shadow-main: 0 20px 50px rgba(255, 110, 180, 0.12);
+    --shadow-hover: 0 25px 60px rgba(255, 110, 180, 0.2);
+    --transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* 2. БАЗОВЫЕ СТИЛИ */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Montserrat', sans-serif;
+    background-color: var(--bg-page);
+    color: var(--text-main);
+    line-height: 1.6;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* 3. НАВИГАЦИЯ */
+nav {
+    padding: 1.5rem 0;
+    background: rgba(255, 252, 247, 0.8);
+    backdrop-filter: blur(10px);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+}
+
+.nav-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.logo {
+    font-size: 1.8rem;
+    font-weight: 800;
+    letter-spacing: -1px;
+    cursor: pointer;
+}
+
+.logo span {
+    color: white;
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    padding: 2px 12px;
+    border-radius: 12px;
+    margin-left: 5px;
+}
+
+.menu {
+    display: flex;
+    gap: 2.5rem;
+    align-items: center;
+}
+
+.menu a {
+    text-decoration: none;
+    color: var(--text-main);
+    font-weight: 600;
+    font-size: 0.95rem;
+    transition: var(--transition);
+}
+
+.menu a:hover {
+    color: var(--primary);
+    transform: translateY(-2px);
+}
+
+.auth-buttons {
+    display: flex;
+    gap: 1rem;
+}
+
+/* 4. КНОПКИ */
+button {
+    cursor: pointer;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 700;
+    border: none;
+    outline: none;
+    transition: var(--transition);
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, var(--primary), var(--primary-soft));
+    color: white;
+    padding: 0.9rem 1.8rem;
+    border-radius: var(--radius-lg);
+    box-shadow: 0 10px 25px rgba(255, 110, 180, 0.2);
+}
+
+.btn-primary:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-hover);
+}
+
+.btn-outline {
+    background: white;
+    border: 2px solid var(--border-soft);
+    color: var(--text-main);
+    padding: 0.8rem 1.6rem;
+    border-radius: var(--radius-lg);
+}
+
+.btn-outline:hover {
+    border-color: var(--primary);
+    background: var(--accent-light);
+}
+
+.btn-lg {
+    padding: 1.4rem 4rem;
+    font-size: 1.2rem;
+    border-radius: 25px;
+    margin-top: 3rem;
+}
+
+/* 5. ГЛАВНАЯ СТРАНИЦА (HERO) */
+.hero {
+    text-align: center;
+    padding: 8rem 1rem;
+    position: relative;
+}
+
+.hero h1 {
+    font-size: 5rem;
+    font-weight: 800;
+    line-height: 1.1;
+    margin-bottom: 2rem;
+    letter-spacing: -2px;
+}
+
+.hero h1 span {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+    
+    -webkit-text-fill-color: transparent;
+}
+
+.hero p {
+    font-size: 1.4rem;
+    max-width: 650px;
+    margin: 0 auto;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+/* 6. КАРТОЧКИ И ФОРМЫ */
+.container {
+    max-width: 1100px;
+    margin: 0 auto 100px;
+    padding: 0 2rem;
+}
+
+.card, .auth-card {
+    background: var(--bg-card);
+    border-radius: var(--radius-xl);
+    padding: 4rem;
+    box-shadow: var(--shadow-main);
+    transition: var(--transition);
+}
+
+.auth-card {
+    max-width: 480px;
+    margin: 40px auto;
+}
+
+.auth-card h2 {
+    font-weight: 800;
+    font-size: 2rem;
+    margin-bottom: 2rem;
+    text-align: center;
+}
+
+.grid-2 {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr;
+    gap: 3.5rem;
+}
+
+/* Поля ввода */
+.input-field {
+    margin-bottom: 1.5rem;
+}
+
+label {
+    font-weight: 700;
+    margin-bottom: 0.8rem;
+    display: block;
+    font-size: 0.9rem;
+}
+
+input, textarea, select {
+    font-family: 'Montserrat', sans-serif;
+    width: 100%;
+    background: #faf7fb;
+    border: 2px solid transparent;
+    padding: 1.2rem;
+    border-radius: var(--radius-lg);
+    font-size: 1rem;
+    color: var(--text-main);
+    transition: var(--transition);
+}
+
+input:focus, textarea:focus, select:focus {
+    outline: none;
+    background: white;
+    border-color: var(--primary-soft);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.02);
+}
+
+textarea {
+    height: 180px;
+    resize: none;
+}
+
+.full-width {
+    width: 100%;
+}
+
+.auth-footer {
+    text-align: center;
+    margin-top: 2rem;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+}
+
+.auth-footer a {
+    color: var(--primary);
+    text-decoration: none;
+    font-weight: 700;
+}
+
+/* 7. ТАБЛИЦЫ (ЛИЧНЫЙ КАБИНЕТ) */
+.custom-table {
+    width: 100%;
+    border-spacing: 0 16px;
+    border-collapse: separate;
+}
+
+.custom-table th {
+    text-align: left;
+    padding: 0 1.5rem;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+}
+
+.custom-table td {
+    background: white;
+    padding: 1.5rem;
+    border: none;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.02);
+    font-weight: 500;
+}
+
+.custom-table td:first-child {
+    border-radius: var(--radius-lg) 0 0 var(--radius-lg);
+}
+
+.custom-table td:last-child {
+    border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+}
+
+.btn-table {
+    background: var(--accent-light);
+    color: var(--primary);
+    padding: 8px 18px;
+    border-radius: 12px;
+    font-size: 0.85rem;
+}
+
+.btn-table:hover {
+    background: var(--primary);
+    color: white;
+}
+
+/* 8. АНИМАЦИЯ ПЕРЕКЛЮЧЕНИЯ СТРАНИЦ */
+.page {
+    display: none;
+    animation: slideIn 0.7s var(--transition) forwards;
+}
+
+.page.active {
+    display: block;
+}
+
+@keyframes slideIn {
+    from { 
+        opacity: 0; 
+        transform: scale(0.97) translateY(30px); 
+    }
+    to { 
+        opacity: 1; 
+        transform: scale(1) translateY(0); 
+    }
+}
+
+
+/* Стили для выбора устройств */
+.device-selector {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 5px;
+}
+
+.device-chip {
+    padding: 10px 18px;
+    background: #faf7fb;
+    border: 2px solid var(--border-soft);
+    border-radius: var(--radius-lg); /* Теперь они будут не сильно закругленными, как ты настроил */
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    color: var(--text-muted);
+    transition: var(--transition);
+    user-select: none;
+}
+
+.device-chip:hover {
+    border-color: var(--primary-soft);
+    color: var(--primary);
+}
+
+/* Стиль для ВЫБРАННОГО устройства */
+.device-chip.active {
+    background: var(--accent-light);
+    border-color: var(--primary);
+    color: var(--primary);
+    box-shadow: 0 4px 12px rgba(255, 110, 180, 0.1);
+}
