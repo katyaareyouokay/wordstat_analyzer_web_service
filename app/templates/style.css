@@ -683,8 +683,8 @@ textarea {
     box-shadow: 0 10px 25px rgba(0,0,0,0.1);
 }
 
-.select-dropdown-list.show {
-    display: block;
+#regions-list.show {
+    display: block !important;
 }
 
 /* Элемент списка (Регион) */

@@ -539,6 +539,17 @@ async function renderMultipleResults(results, type) {
             }, 100);
         }
         else if (type === 'regions') {
+            const mapWrapper = document.createElement('div');
+            mapWrapper.id = `map-container-${index}`;
+            mapWrapper.style.width = '100%';
+            mapWrapper.style.height = '400px';
+            mapWrapper.style.marginBottom = '20px';
+            section.appendChild(mapWrapper);
+
+            setTimeout(() => {
+                renderRegionHeatmap(`map-container-${index}`, items);
+            }, 200);
+
             thead.innerHTML = `
                 <tr>
                     <th>Регион/Город</th>
@@ -546,13 +557,15 @@ async function renderMultipleResults(results, type) {
                     <th>Доля %</th>
                     <th>Affinity</th>
                 </tr>`;
-            tbody.innerHTML = items.map(i => `
+            const top20 = items.slice(0, 20);
+            tbody.innerHTML = top20.map(i => `
                 <tr>
                     <td>${i.regionName || 'Регион ' + i.regionId}</td>
                     <td>${(i.count || 0).toLocaleString()}</td>
-                    <td>${((i.share || 0) * 100).toFixed(4)}</td>
+                    <td>${((i.share || 0) * 100).toFixed(4)}%</td>
                     <td>${(i.affinityIndex || 0).toFixed(0)}%</td>
-                </tr>`).join('');
+                </tr>
+            `).join('');
         }
 
         table.appendChild(thead);
@@ -933,13 +946,13 @@ function downloadExcel() {
     XLSX.writeFile(wb, fileName);
 }
 
-
 // Блок связанный с чекбоксом regions
 let allRegions = []; // все регионы
 let selectedRegionIds = new Set(); // ID выбранных
 
 // 1. Функция открытия/закрытия
 function toggleRegions() {
+    console.log("Кнопка нажата!");
     const list = document.getElementById('regions-list');
     list.classList.toggle('show');
 }
@@ -1057,3 +1070,218 @@ function updateRegionsLabel() {
 }
 
 document.addEventListener('DOMContentLoaded', initializeRegions);
+
+
+
+function renderRegionHeatmap(containerId, items) {
+    google.charts.load('current', { 
+        'packages': ['geochart'],
+        'language': 'ru' 
+    });
+    
+    google.charts.setOnLoadCallback(drawRegionsMap);
+
+    function drawRegionsMap() {
+        const data = new google.visualization.DataTable();
+        data.addColumn('string', 'Region');
+        data.addColumn('number', 'Affinity Index');
+        data.addColumn({type: 'string', role: 'tooltip'});
+
+        const regionFix = {
+            // Федеральные города
+            "Москва": "RU-MOS",
+            "Санкт-Петербург": "RU-LEN",
+            "Севастополь": "RU-SE",
+
+            // Центральный ФО
+            "Белгородская область": "RU-BEL",
+            "Брянская область": "RU-BRY",
+            "Владимирская область": "RU-VLA",
+            "Воронежская область": "RU-VOR",
+            "Ивановская область": "RU-IVA",
+            "Калужская область": "RU-KLU",
+            "Костромская область": "RU-KOS",
+            "Курская область": "RU-KRS",
+            "Липецкая область": "RU-LIP",
+            "Московская область": "RU-MOS",
+            "Орловская область": "RU-ORL",
+            "Рязанская область": "RU-RYA",
+            "Смоленская область": "RU-SMO",
+            "Тамбовская область": "RU-TAM",
+            "Тверская область": "RU-TVE",
+            "Тульская область": "RU-TUL",
+            "Ярославская область": "RU-YAR",
+
+            // Северо-Западный ФО
+            "Архангельская область": "RU-ARK",
+            "Вологодская область": "RU-VLG",
+            "Калининградская область": "RU-KGD",
+            "Ленинградская область": "RU-LEN",
+            "Мурманская область": "RU-MUR",
+            "Новгородская область": "RU-NGR",
+            "Псковская область": "RU-PSK",
+            "Республика Карелия": "RU-KR",
+            "Республика Коми": "RU-KO",
+
+            // Южный + Северо-Кавказский ФО
+            "Адыгея": "RU-AD",
+            "Республика Адыгея": "RU-AD",
+            "Дагестан": "RU-DA",
+            "Республика Дагестан": "RU-DA",
+            "Ингушетия": "RU-IN",
+            "Кабардино-Балкария": "RU-KB",
+            "Калмыкия": "RU-KL",
+            "Карачаево-Черкесия": "RU-KC",
+            "Краснодарский край": "RU-KDA",
+            "Ростовская область": "RU-ROS",
+            "Северная Осетия": "RU-SE",
+            "Ставропольский край": "RU-STA",
+            "Чечня": "RU-CE",
+            "Чеченская Республика": "RU-CE",
+            "Крым": "RU-CR",
+
+            // Приволжский ФО
+            "Башкортостан": "RU-BA",
+            "Республика Башкортостан": "RU-BA",
+            "Марий Эл": "RU-ME",
+            "Мордовия": "RU-MO",
+            "Татарстан": "RU-TA",
+            "Удмуртия": "RU-UD",
+            "Чувашия": "RU-CU",
+            "Пермский край": "RU-PER",
+            "Кировская область": "RU-KIR",
+            "Нижегородская область": "RU-NIZ",
+            "Оренбургская область": "RU-ORE",
+            "Пензенская область": "RU-PNZ",
+            "Самарская область": "RU-SAM",
+            "Саратовская область": "RU-SAR",
+            "Ульяновская область": "RU-ULY",
+
+            // Уральский ФО
+            "Курганская область": "RU-KGN",
+            "Свердловская область": "RU-SVE",
+            "Тюменская область": "RU-TYU",
+            "Челябинская область": "RU-CHE",
+            "Ханты-Мансийский АО": "RU-KHM",
+            "Ямало-Ненецкий АО": "RU-YAN",
+
+            // Сибирский ФО
+            "Алтайский край": "RU-ALT",
+            "Республика Алтай": "RU-AL",
+            "Забайкальский край": "RU-ZAB",
+            "Иркутская область": "RU-IRK",
+            "Кемеровская область": "RU-KEM",
+            "Красноярский край": "RU-KYA",
+            "Новосибирская область": "RU-NVS",
+            "Омская область": "RU-OMS",
+            "Томская область": "RU-TOM",
+            "Республика Бурятия": "RU-BU",
+            "Республика Тыва": "RU-TY",
+            "Республика Хакасия": "RU-KK",
+
+            // Дальневосточный ФО
+            "Амурская область": "RU-AMU",
+            "Еврейская АО": "RU-YEV",
+            "Камчатский край": "RU-KAM",
+            "Магаданская область": "RU-MAG",
+            "Приморский край": "RU-PRI",
+            "Сахалинская область": "RU-SAK",
+            "Хабаровский край": "RU-KHA",
+            "Республика Саха (Якутия)": "RU-SA",
+            "Якутия": "RU-SA",
+            "Чукотский АО": "RU-CHU",
+
+            // === ДОБАВЛЕНО ПО ТВОЕЙ ПРОСЬБЕ ===
+            "Волгоградская область": "RU-VGG",
+            "Волгоград": "RU-VGG",
+            "Астраханская область": "RU-AST",
+            "Астрахань": "RU-AST",
+            "Ямало-Ненецкий автономный округ": "RU-YAN",
+            "Ненецкий автономный округ": "RU-NEN",
+            "Нарьян-Мар": "RU-NEN",
+            "Чукотский автономный округ": "RU-CHU"
+        };
+
+        let errorCount = 0;
+        const MAX_ERRORS = 100;
+
+        items.forEach(item => {
+            let name = (item['Регион'] || item.regionName || item.region || "").toString().trim();
+            let searchName = name.toLowerCase();
+
+            let rawAff = item['Affinity Index'] || item.affinityIndex || item.affinity || 0;
+            let value = parseFloat(String(rawAff).replace('%', '').replace(',', '.')) || 0;
+
+            let geoCode = null;
+
+            // 1. Прямое совпадение
+            if (regionFix[name]) {
+                geoCode = regionFix[name];
+            } 
+            // 2. Поиск по ключевым словам
+            else {
+                for (let key in regionFix) {
+                    if (searchName.includes(key.toLowerCase())) {
+                        geoCode = regionFix[key];
+                        break;
+                    }
+                }
+            }
+
+            // 3. Специальные правила
+            if (!geoCode) {
+                const lower = searchName.toLowerCase();
+                
+                if (lower.includes("москва")) geoCode = "RU-MOS";
+                if (lower.includes("петербург") || lower.includes("ленинград")) geoCode = "RU-LEN";
+                if (lower.includes("тюмен")) geoCode = "RU-TYU";
+                if (lower.includes("хмао") || lower.includes("югра")) geoCode = "RU-KHM";
+                if (lower.includes("янао") || lower.includes("ямало")) geoCode = "RU-YAN";
+                if (lower.includes("ненец")) geoCode = "RU-NEN";
+                if (lower.includes("чукот")) geoCode = "RU-CHU";
+                if (lower.includes("волгоград")) geoCode = "RU-VGG";
+                if (lower.includes("астрахан")) geoCode = "RU-AST";
+                if (lower.includes("камчат")) geoCode = "RU-KAM";
+                if (lower.includes("примор")) geoCode = "RU-PRI";
+                if (lower.includes("хабаров")) geoCode = "RU-KHA";
+                if (lower.includes("саха") || lower.includes("якут")) geoCode = "RU-SA";
+                if (lower.includes("крым")) geoCode = "RU-CR";
+            }
+
+            // Округление процентов (до 1 знака после запятой)
+            const roundedValue = Math.round(value * 10) / 10;
+
+            if (geoCode) {
+                data.addRow([geoCode, roundedValue, `${name}: ${roundedValue}%`]);
+            } else if (errorCount < MAX_ERRORS) {
+                data.addRow([name, roundedValue, `${name}: ${roundedValue}%`]);
+                errorCount++;
+            }
+        });
+
+        const options = {
+            region: 'RU',
+            displayMode: 'regions',
+            resolution: 'provinces',
+            colorAxis: {
+                colors: ['#E0F2F1', '#26A69A', '#00897B', '#004D40']
+            },
+            backgroundColor: '#ffffff',
+            datalessRegionColor: '#f0f0f0',
+            defaultColor: '#f0f0f0',
+            legend: {
+                textStyle: { color: '#333', fontSize: 12 }
+            },
+            tooltip: { 
+                textStyle: { fontSize: 13 },
+                trigger: 'focus'
+            }
+        };
+
+        const chart = new google.visualization.GeoChart(
+            document.getElementById(containerId)
+        );
+        
+        chart.draw(data, options);
+    }
+}
