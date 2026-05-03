@@ -57,6 +57,36 @@ function syncAuthNav() {
     }
 }
 
+function showPage(pageId) {
+    const allInputs = document.querySelectorAll('input, textarea');
+    allInputs.forEach(input => {
+        if (input.type !== 'button' && input.type !== 'submit') {
+            input.value = '';
+        }
+    });
+
+    const loginInput = document.getElementById('login-email');
+    const passInput = document.getElementById('login-password');
+    if (loginInput) loginInput.value = '';
+    if (passInput) passInput.value = '';
+
+    document.querySelectorAll('.page').forEach(page => {
+        page.classList.remove('active');
+    });
+
+    const target = document.getElementById(pageId);
+    if (target) {
+        target.classList.add('active');
+        window.scrollTo(0, 0);
+
+        if (pageId === 'cabinet') {
+            loadHistory();
+        } else if (pageId === 'admin-stats') {
+            loadAdminStatistics();
+        }
+    }
+}
+
 function logoutUser() {
     localStorage.removeItem('token');
     syncAuthNav();
@@ -227,21 +257,7 @@ async function runAnalysis() {
         alert("Произошла ошибка. Проверьте консоль браузера (F12).");
     }
 }
-function showPage(pageId) {
-    // 1. Прячем все страницы
-    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-    
-    // 2. Показываем нужную
-    const target = document.getElementById(pageId);
-    if (target) {
-        target.classList.add('active');
-        
-        // 3. Если перешли в "Историю" (в HTML это id="cabinet")
-        if (pageId === 'cabinet') {
-            loadHistory();
-        }
-    }
-}
+
 
 // Функция загрузки истории из БД
 async function loadHistory() {
@@ -252,8 +268,6 @@ async function loadHistory() {
 
     try {
         const token = localStorage.getItem('token');
-        
-        // ИСПРАВЛЕНО: Добавлен правильный префикс /wordstat вместо /api
         const response = await fetch('/wordstat/history', { 
             headers: { 
                 'Authorization': `Bearer ${token}`,
@@ -261,31 +275,67 @@ async function loadHistory() {
             }
         });
 
-        if (!response.ok) {
-            if (response.status === 401) throw new Error("Авторизуйтесь, чтобы увидеть историю");
-            if (response.status === 404) throw new Error("Эндпоинт /wordstat/history не найден на сервере");
-            throw new Error("Ошибка сервера при загрузке");
-        }
-
+        if (!response.ok) throw new Error("Ошибка загрузки");
         const historyData = await response.json();
 
         if (!historyData || historyData.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">История пуста. Пора что-нибудь проанализировать!</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">История пуста.</td></tr>';
             return;
         }
 
-        tbody.innerHTML = historyData.map(item => {
-            // Если дата приходит строкой '2026-04-15 15:30', создаем объект даты
-            const dateObj = new Date(item.created_at);
-            const dateStr = isNaN(dateObj) ? item.created_at : dateObj.toLocaleDateString('ru-RU');
+        // --- УМНАЯ ГРУППИРОВКА ---
+        const groups = {};
+
+        historyData.forEach(item => {
+            // 1. Пытаемся взять group_id от бэкенда
+            // 2. Если бэкенд прислал мусор, используем время до минут
+            // Добавляем тип (top/regions), чтобы не смешивать разные виды анализов
+            const timeKey = item.created_at ? item.created_at.substring(0, 16) : 'no-date';
+            const compositeKey = `${item.group_id}_${timeKey}_${item.type}`;
             
+            if (!groups[compositeKey]) {
+                groups[compositeKey] = {
+                    group_id: item.group_id,
+                    id: item.id,
+                    created_at: item.created_at,
+                    type: item.type,
+                    phrases: []
+                };
+            }
+            
+            // Очищаем фразу от лишних пробелов и добавляем, если её нет
+            const cleanPhrase = item.phrase.trim();
+            if (cleanPhrase && !groups[compositeKey].phrases.includes(cleanPhrase)) {
+                groups[compositeKey].phrases.push(cleanPhrase);
+            }
+        });
+
+        // Сортируем группы по дате (новые сверху)
+        const sortedGroups = Object.values(groups).sort((a, b) => 
+            new Date(b.created_at) - new Date(a.created_at)
+        );
+
+        tbody.innerHTML = sortedGroups.map(group => {
+            const dateObj = new Date(group.created_at);
+            const dateStr = isNaN(dateObj) ? group.created_at : dateObj.toLocaleString('ru-RU', {
+                day: '2-digit', month: '2-digit', year: 'numeric',
+                hour: '2-digit', minute: '2-digit'
+            });
+
+            // Отображаем фразы списком через запятую
+            const phraseList = group.phrases.join(', ');
+
             return `
                 <tr>
                     <td style="color: #666; white-space: nowrap;">${dateStr}</td>
-                    <td><span class="badge">${item.type}</span></td>
-                    <td style="width: 100%;"><strong>${item.phrase}</strong></td>
+                    <td><span class="badge">${group.type}</span></td>
+                    <td style="width: 100%;">
+                        <div style="line-height: 1.4;">
+                            <strong>${phraseList}</strong>
+                        </div>
+                    </td>
                     <td style="text-align: right;">
-                        <button type="button" class="btn secondary btn-sm" onclick='downloadFromHistory(${item.group_id}, ${JSON.stringify(item.type)})'>
+                        <button type="button" class="btn secondary btn-sm" onclick='downloadFromHistory(${JSON.stringify(group.group_id)}, ${JSON.stringify(group.type)})'>
                             📥 Excel
                         </button>
                     </td>
@@ -294,8 +344,8 @@ async function loadHistory() {
         }).join('');
 
     } catch (error) {
-        console.error("History Load Error:", error);
-        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:red; padding: 20px;">${error.message}</td></tr>`;
+        console.error("History Error:", error);
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:red;">${error.message}</td></tr>`;
     }
 }
 
@@ -435,14 +485,22 @@ async function renderMultipleResults(results, type) {
     container.innerHTML = '';
     lastAnalysisResults = results;
 
+    // Очистка старых графиков, если они были
     if (window.activeCharts) {
         window.activeCharts.forEach(c => c && c.destroy());
     }
     window.activeCharts = [];
 
     Object.entries(results).forEach(([phrase, response], index) => {
+        // Извлекаем данные: обрабатываем и массив, и объект с вложенными полями
         const content = response.data || response;
-        const items = content.dynamics || content.points || content.regions || content.items || content.topRequests || [];
+        let items = [];
+        
+        if (Array.isArray(content)) {
+            items = content;
+        } else {
+            items = content.dynamics || content.points || content.regions || content.items || content.topRequests || [];
+        }
         
         const section = document.createElement('div');
         section.className = 'phrase-result-block';
@@ -451,7 +509,7 @@ async function renderMultipleResults(results, type) {
         if (type === 'top') {
             const chartWrapper = document.createElement('div');
             chartWrapper.className = 'chart-wrapper';
-            chartWrapper.style.height = '300px'; 
+            chartWrapper.style.height = '300px';
             chartWrapper.style.marginBottom = '20px';
             chartWrapper.innerHTML = `<canvas id="bubble-chart-${index}"></canvas>`;
             section.appendChild(chartWrapper);
@@ -459,7 +517,7 @@ async function renderMultipleResults(results, type) {
 
         if (type === 'dynamics') {
             const chartWrapper = document.createElement('div');
-            chartWrapper.className = 'chart-wrapper'; // Используем класс из CSS
+            chartWrapper.className = 'chart-wrapper';
             chartWrapper.innerHTML = `<canvas id="chart-${index}"></canvas>`;
             section.appendChild(chartWrapper);
         }
@@ -476,8 +534,7 @@ async function renderMultipleResults(results, type) {
                     <td>${i.phrase || '---'}</td>
                     <td>${(i.count || 0).toLocaleString()}</td>
                 </tr>`).join('');
-            
-            // Инициализация пузырьков
+
             setTimeout(() => {
                 renderSingleBubbleChart(`bubble-chart-${index}`, items);
             }, 100);
@@ -490,9 +547,11 @@ async function renderMultipleResults(results, type) {
                 return `<tr><td>${periodLabel}</td><td>${(i.count || 0).toLocaleString()}</td><td>${((i.share || 0) * 100).toFixed(4)}%</td></tr>`;
             }).join('');
             
-            // Отрисовка графика с ОВАЛАМИ и ПРЯМОЙ ЛИНИЕЙ
+            // Отрисовка графика динамики (твой исходный код)
             setTimeout(() => {
-                const ctx = document.getElementById(`chart-${index}`).getContext('2d');
+                const canvas = document.getElementById(`chart-${index}`);
+                if (!canvas) return;
+                const ctx = canvas.getContext('2d');
                 const chart = new Chart(ctx, {
                     type: 'line',
                     data: {
@@ -505,7 +564,7 @@ async function renderMultipleResults(results, type) {
                                 backgroundColor: '#4e73df',
                                 yAxisID: 'y', 
                                 tension: 0.3,
-                                pointStyle: 'rectRounded', // Овалы
+                                pointStyle: 'rectRounded',
                                 pointRadius: 5
                             },
                             { 
@@ -513,10 +572,9 @@ async function renderMultipleResults(results, type) {
                                 data: items.map(i => (parseFloat(i.share) || 0) * 100), 
                                 borderColor: '#1cc88a', 
                                 backgroundColor: '#1cc88a',
-                                borderDash: [], // Прямая линия (убрали пунктир)
                                 yAxisID: 'y1', 
                                 tension: 0.3,
-                                pointStyle: 'rectRounded', // Овалы
+                                pointStyle: 'rectRounded',
                                 pointRadius: 5
                             }
                         ]
@@ -524,11 +582,7 @@ async function renderMultipleResults(results, type) {
                     options: { 
                         responsive: true, 
                         maintainAspectRatio: false, 
-                        plugins: {
-                            legend: {
-                                labels: { usePointStyle: true } // Овалы в легенде сверху
-                            }
-                        },
+                        plugins: { legend: { labels: { usePointStyle: true } } },
                         scales: { 
                             y: { type: 'linear', position: 'left', title: { display: true, text: 'Запросы' } }, 
                             y1: { type: 'linear', position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: 'Доля %' } } 
@@ -560,8 +614,8 @@ async function renderMultipleResults(results, type) {
             const top20 = items.slice(0, 20);
             tbody.innerHTML = top20.map(i => `
                 <tr>
-                    <td>${i.regionName || 'Регион ' + i.regionId}</td>
-                    <td>${(i.count || 0).toLocaleString()}</td>
+                    <td>${i.name || i.regionName || 'Регион ' + (i.regionId || '---')}</td>
+                    <td>${(i.count || i.value || 0).toLocaleString()}</td>
                     <td>${((i.share || 0) * 100).toFixed(4)}%</td>
                     <td>${(i.affinityIndex || 0).toFixed(0)}%</td>
                 </tr>
@@ -793,8 +847,6 @@ async function getRegionsAnalysis(inputPhrase, regionType, devices) {
     renderMultipleResults(allResults, 'regions');
     showPage('results');
 }
-
-
 async function loginUser() {
     const email = document.getElementById('login-email').value;
     const password = document.getElementById('login-password').value;
@@ -804,9 +856,8 @@ async function loginUser() {
         return;
     }
 
-    // Формат x-www-form-urlencoded требует URLSearchParams
     const formData = new URLSearchParams();
-    formData.append('username', email); // FastAPI OAuth2 ждет 'username'
+    formData.append('username', email);
     formData.append('password', password);
 
     try {
@@ -821,9 +872,19 @@ async function loginUser() {
         const data = await response.json();
 
         if (response.ok) {
-            // Сохраняем токен
+            // 1. Сохраняем токен и роль (бэкенд должен возвращать role в объекте data)
             localStorage.setItem('token', data.access_token);
-            console.log("Успешный вход, токен сохранен");
+            
+            // 2. Проверяем роль и показываем кнопку админки
+            const adminLink = document.getElementById('admin-link');
+            if (data.role === 'Admin' || email === 'admin') {
+                adminLink.style.display = 'block';
+            } else if (adminLink) {
+                adminLink.style.display = 'none'; // На случай перелогина обычным юзером
+            }
+
+            console.log("Успешный вход, роль:", data.role);
+            
             document.getElementById('login-email').value = '';
             document.getElementById('login-password').value = '';
             syncAuthNav();
@@ -837,7 +898,6 @@ async function loginUser() {
         alert("Не удалось связаться с сервером. Проверь, запущен ли Docker.");
     }
 }
-
 
 async function registerUser() {
     // 1. Собираем данные из инпутов
@@ -1072,7 +1132,6 @@ function updateRegionsLabel() {
 document.addEventListener('DOMContentLoaded', initializeRegions);
 
 
-
 function renderRegionHeatmap(containerId, items) {
     google.charts.load('current', { 
         'packages': ['geochart'],
@@ -1284,4 +1343,68 @@ function renderRegionHeatmap(containerId, items) {
         
         chart.draw(data, options);
     }
+}
+
+async function loadAdminStatistics() {
+    const todayTbody = document.getElementById('today-stats-tbody');
+    const allTimeTbody = document.getElementById('all-time-stats-tbody');
+    const quotaLabel = document.getElementById('total-quota');
+    const token = localStorage.getItem('token');
+
+    if (!todayTbody || !allTimeTbody) return;
+
+    todayTbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Загрузка...</td></tr>';
+
+    try {
+        const [respToday, respAllTime] = await Promise.all([
+            fetch('/statistics/today', { 
+                headers: { 'Authorization': `Bearer ${token}` } 
+            }),
+            fetch('/statistics/all-time', { 
+                headers: { 'Authorization': `Bearer ${token}` } 
+            })
+        ]);
+
+        if (!respToday.ok || !respAllTime.ok) throw new Error("Ошибка доступа к статистике");
+
+        const dataToday = await respToday.json();
+        const dataAllTime = await respAllTime.json();
+
+        // 1. Рендерим таблицы
+        renderAdminRows('today-stats-tbody', dataToday.today_stat);
+        renderAdminRows('all-time-stats-tbody', dataAllTime.all_time_stat);
+
+        // 2. Считаем квоту за сегодня (сумма "голубых ячеек" из ТЗ)
+        // Считаем сумму по всем пользователям: топ + динамика + регионы
+        const totalQuota = dataToday.today_stat.reduce((sum, user) => {
+            return sum + 
+                   (user.top_requests_count || 0) + 
+                   (user.dynamics_requests_count || 0) + 
+                   (user.regions_requests_count || 0);
+        }, 0);
+
+        quotaLabel.innerText = totalQuota.toLocaleString();
+
+    } catch (error) {
+        console.error("Admin Load Error:", error);
+        todayTbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:red;">${error.message}</td></tr>`;
+    }
+}
+
+function renderAdminRows(tbodyId, statsList) {
+    const tbody = document.getElementById(tbodyId);
+    if (!statsList || statsList.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Данных пока нет</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = statsList.map(user => `
+        <tr>
+            <td style="color: #666;">${user.user_id}</td>
+            <td><strong>${user.login}</strong></td>
+            <td class="blue-cell">${(user.top_requests_count || 0).toLocaleString()}</td>
+            <td class="blue-cell">${(user.dynamics_requests_count || 0).toLocaleString()}</td>
+            <td class="blue-cell">${(user.regions_requests_count || 0).toLocaleString()}</td>
+        </tr>
+    `).join('');
 }
