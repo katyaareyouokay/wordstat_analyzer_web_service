@@ -1,0 +1,3 @@
+# Скрипты для Linux-контейнера: только LF, иначе Docker на Windows даёт
+# "exec /app/entrypoint.sh: no such file or directory"
+*.sh text eol=lf

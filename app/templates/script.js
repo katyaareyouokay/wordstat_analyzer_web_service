@@ -43,15 +43,24 @@ function toggleExtraOptions() {
 
 let lastAnalysisResults = null; // Буфер для Excel
 
-function showPage(pageId) {
-    document.querySelectorAll('.page').forEach(page => {
-        page.classList.remove('active');
-    });
-    const target = document.getElementById(pageId);
-    if (target) {
-        target.classList.add('active');
-        window.scrollTo(0, 0);
+/** Показать в шапке «Вход» или «Выйти» в зависимости от localStorage (после F5 токен остаётся). */
+function syncAuthNav() {
+    const container = document.querySelector('.auth-buttons');
+    if (!container) return;
+    if (localStorage.getItem('token')) {
+        container.innerHTML =
+            '<button type="button" class="btn-outline" onclick="logoutUser()">Выйти</button>';
+    } else {
+        container.innerHTML =
+            '<button type="button" class="btn-outline" onclick="showPage(\'login\')">Вход</button>' +
+            '<button type="button" class="btn-primary" onclick="showPage(\'register\')">Регистрация</button>';
     }
+}
+
+function logoutUser() {
+    localStorage.removeItem('token');
+    syncAuthNav();
+    showPage('home');
 }
 
 function toggleDevice(element) {
@@ -78,6 +87,8 @@ function toggleDevice(element) {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
+    syncAuthNav();
+
     const queryTypeSelect = document.getElementById('query-type');
     // ВАЖНО: Проверь, что в HTML у тебя именно эти ID для блоков
     const regionBlock = document.getElementById('region-details-block');
@@ -274,7 +285,7 @@ async function loadHistory() {
                     <td><span class="badge">${item.type}</span></td>
                     <td style="width: 100%;"><strong>${item.phrase}</strong></td>
                     <td style="text-align: right;">
-                        <button class="btn secondary btn-sm" onclick="downloadFromHistory('${item.id}', '${item.type}')">
+                        <button type="button" class="btn secondary btn-sm" onclick='downloadFromHistory(${item.group_id}, ${JSON.stringify(item.type)})'>
                             📥 Excel
                         </button>
                     </td>
@@ -288,35 +299,48 @@ async function loadHistory() {
     }
 }
 
-async function downloadFromHistory(id, type) {
+async function downloadFromHistory(groupId, type) {
+    if (groupId == null || groupId === '') {
+        alert('Нет group_id для выгрузки. Обновите страницу и откройте историю снова.');
+        return;
+    }
     const token = localStorage.getItem('token');
-    
+    if (!token) {
+        alert('Сначала войдите в аккаунт.');
+        return;
+    }
+
     try {
-        // Делаем запрос на получение файла
-        const response = await fetch(`/wordstat/history/download/${id}?type=${encodeURIComponent(type)}`, {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${token}`
+        const response = await fetch(
+            `/wordstat/history/group/${encodeURIComponent(groupId)}/download?type=${encodeURIComponent(type)}`,
+            {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
             }
-        });
+        );
 
-        if (!response.ok) throw new Error("Не удалось скачать файл");
+        if (!response.ok) {
+            let detail = response.statusText;
+            try {
+                const errBody = await response.json();
+                if (errBody && errBody.detail) detail = typeof errBody.detail === 'string' ? errBody.detail : JSON.stringify(errBody.detail);
+            } catch (_) { /* не JSON */ }
+            throw new Error(`${response.status}: ${detail}`);
+        }
 
-        // Превращаем ответ в "blob" (бинарный объект файла)
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
-        
-        // Создаем невидимую ссылку и кликаем по ней для скачивания
+
         const a = document.createElement('a');
         a.href = url;
-        a.download = `report_${type}_${id}.xlsx`;
+        a.download = `report_${type}_${groupId}.xlsx`;
         document.body.appendChild(a);
         a.click();
-        
-        // Очистка
+
         window.URL.revokeObjectURL(url);
         a.remove();
-
     } catch (error) {
         console.error("Download error:", error);
         alert("Ошибка при скачивании файла: " + error.message);
@@ -324,46 +348,59 @@ async function downloadFromHistory(id, type) {
 }
 async function getDynamicsAnalysis(inputPhrase, periodType, dateFrom, dateTo, regions, devices) {
     const token = localStorage.getItem('token');
-    // Поддержка нескольких фраз через запятую
     const phrases = inputPhrase.split(',').map(p => p.trim()).filter(p => p);
+    if (!phrases.length) {
+        alert("Введите хотя бы одну фразу.");
+        return;
+    }
     let allResults = {};
 
-    for (const p of phrases) {
-        try {
-            const response = await fetch('/wordstat/dynamics', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                    phrase: p,
-                    period: periodType,
-                    from_date: dateFrom,
-                    to_date: dateTo,
-                    regions: regions, // Массив ID: [1, 225, ...]
-                    devices: devices  // Массив ID: [1, 2]
-                })
-            });
+    try {
+        const response = await fetch('/wordstat/dynamics', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                phrases: phrases,
+                phrase: phrases[0],
+                period: periodType,
+                from_date: dateFrom,
+                to_date: dateTo,
+                regions: regions,
+                devices: devices
+            })
+        });
 
-            const result = await response.json();
+        const result = await response.json();
 
-            if (response.ok) {
-                // Предполагаем, что бэкенд возвращает данные в result.data
-                allResults[p] = {
+        if (response.ok) {
+            const by = result.by_phrase || {};
+            if (Object.keys(by).length === 0 && result.data && phrases.length === 1) {
+                allResults[phrases[0]] = {
                     dynamics: result.data.dynamics || result.data.points || [],
                     period: periodType
                 };
             } else {
-                console.error(`Ошибка API для "${p}":`, result);
-                alert(`Ошибка для фразы "${p}": ${result.detail || 'Проверьте параметры запроса'}`);
+                for (const p of phrases) {
+                    const block = by[p];
+                    if (block) {
+                        allResults[p] = {
+                            dynamics: block.dynamics || block.points || [],
+                            period: periodType
+                        };
+                    }
+                }
             }
-        } catch (err) {
-            console.error(`Сетевая ошибка для фразы "${p}":`, err);
+        } else {
+            console.error('Ошибка API динамики:', result);
+            alert(result.detail ? JSON.stringify(result.detail) : 'Проверьте параметры запроса');
         }
+    } catch (err) {
+        console.error('Сетевая ошибка динамики:', err);
     }
 
-    // Если получили хотя бы один результат — рендерим
     if (Object.keys(allResults).length > 0) {
         if (typeof renderMultipleResults === 'function') {
             renderMultipleResults(allResults, 'dynamics');
@@ -502,31 +539,23 @@ async function renderMultipleResults(results, type) {
             }, 100);
         }
         else if (type === 'regions') {
-            container.innerHTML = `
-                    <table class="results-table">
-                        <thead>
-                            <tr>
-                                <th>Регион/Город</th>
-                                <th>Запросы</th>
-                                <th>Доля %</th>
-                                <th>Affinity</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${items.map(i => `
-                                <tr>
-                                    <td>${i.regionName || 'Регион ' + i.regionId}</td>
-                                    <td>${(i.count || 0).toLocaleString()}</td>
-                                    <td>${((i.share || 0) * 100).toFixed(4)}</td>
-                                    <td>${(i.affinityIndex || 0).toFixed(0)}%</td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                `;
+            thead.innerHTML = `
+                <tr>
+                    <th>Регион/Город</th>
+                    <th>Запросы</th>
+                    <th>Доля %</th>
+                    <th>Affinity</th>
+                </tr>`;
+            tbody.innerHTML = items.map(i => `
+                <tr>
+                    <td>${i.regionName || 'Регион ' + i.regionId}</td>
+                    <td>${(i.count || 0).toLocaleString()}</td>
+                    <td>${((i.share || 0) * 100).toFixed(4)}</td>
+                    <td>${(i.affinityIndex || 0).toFixed(0)}%</td>
+                </tr>`).join('');
         }
 
-        table.appendChild(thead); 
+        table.appendChild(thead);
         table.appendChild(tbody);
         section.appendChild(table);
         container.appendChild(section);
@@ -651,35 +680,57 @@ function renderDoubleChart(canvasId, items, label) {
 async function getTopRequests(inputPhrase, regions, devices) {
     const token = localStorage.getItem('token');
     const phrases = inputPhrase.split(',').map(p => p.trim()).filter(p => p);
+    if (!phrases.length) {
+        alert("Введите хотя бы одну фразу.");
+        return;
+    }
     let allResults = {};
 
-    for (const p of phrases) {
-        try {
-            const response = await fetch('/wordstat/search', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                    phrase: p,
-                    regions: regions,
-                    devices: devices
-                })
-            });
-
-            const result = await response.json();
-
-            if (response.ok) {
-                // ВАЖНО: сохраняем результат целиком в объект под ключом фразы
-                // Твоя renderMultipleResults ожидает именно такой формат
-                allResults[p] = result;
-            } else {
-                console.error(`Ошибка для фразы "${p}":`, result.detail);
-            }
-        } catch (err) {
-            console.error(`Сетевая ошибка на фразе "${p}":`, err);
+    try {
+        const response = await fetch('/wordstat/search', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                phrases: phrases,
+                phrase: phrases[0],
+                regions: regions,
+                devices: devices
+            })
+        });
+        const result = await response.json();
+        if (!response.ok) {
+            const det = result.detail;
+            const msg = typeof det === 'object' && det && det.phrase
+                ? `Ошибка для «${det.phrase}»: ${JSON.stringify(det.yandex || det)}`
+                : (det || 'Ошибка запроса');
+            console.error(msg);
+            alert(msg);
+            return;
         }
+        const by = result.by_phrase || {};
+        if (Object.keys(by).length === 0 && result.data && phrases.length === 1) {
+            allResults[phrases[0]] = {
+                status: result.status,
+                group_id: result.group_id,
+                data: result.data
+            };
+        } else {
+            for (const p of phrases) {
+                if (by[p]) {
+                    allResults[p] = {
+                        status: result.status,
+                        group_id: result.group_id,
+                        data: by[p]
+                    };
+                }
+            }
+        }
+    } catch (err) {
+        console.error('Сетевая ошибка при запросе топа:', err);
+        alert('Не удалось связаться с сервером.');
     }
 
     if (Object.keys(allResults).length > 0) {
@@ -693,22 +744,38 @@ async function getTopRequests(inputPhrase, regions, devices) {
 async function getRegionsAnalysis(inputPhrase, regionType, devices) {
     const token = localStorage.getItem('token');
     const phrases = inputPhrase.split(',').map(p => p.trim()).filter(p => p);
+    if (!phrases.length) {
+        alert("Введите хотя бы одну фразу.");
+        return;
+    }
     let allResults = {};
 
-    for (const p of phrases) {
-        try {
-            const response = await fetch('/wordstat/regions', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify({
-                    phrase: p,
-                    region_type: regionType,
-                    devices: devices
-                })
-            });
-            const result = await response.json();
-            if (response.ok) { allResults[p] = result.data; }
-        } catch (err) { console.error(err); }
+    try {
+        const response = await fetch('/wordstat/regions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({
+                phrases: phrases,
+                phrase: phrases[0],
+                region_type: regionType,
+                devices: devices
+            })
+        });
+        const result = await response.json();
+        if (!response.ok) {
+            alert(result.detail ? JSON.stringify(result.detail) : 'Ошибка регионов');
+            return;
+        }
+        const by = result.by_phrase || {};
+        if (Object.keys(by).length === 0 && result.data && phrases.length === 1) {
+            allResults[phrases[0]] = result.data;
+        } else {
+            for (const p of phrases) {
+                if (by[p]) allResults[p] = by[p];
+            }
+        }
+    } catch (err) {
+        console.error(err);
     }
     renderMultipleResults(allResults, 'regions');
     showPage('results');
@@ -746,6 +813,7 @@ async function loginUser() {
             console.log("Успешный вход, токен сохранен");
             document.getElementById('login-email').value = '';
             document.getElementById('login-password').value = '';
+            syncAuthNav();
             showPage('tool');
 
         } else {
@@ -863,32 +931,6 @@ function downloadExcel() {
 
     const fileName = `Wordstat_${new Date().toISOString().slice(0,10)}.xlsx`;
     XLSX.writeFile(wb, fileName);
-}
-
-async function downloadFromHistory(phrase, type) {
-    // 1. Подменяем значение в инпуте, чтобы функции знали что искать
-    const input = document.getElementById('query-input');
-    if (input) input.value = phrase;
-
-    // 2. Эмулируем загрузку данных (без смены экрана на "Результаты")
-    try {
-        if (type === 'top') {
-            await getTopRequests(phrase);
-        } else if (type === 'regions') {
-            await getRegionsAnalysis(phrase, 'country'); // По умолчанию страны
-        } else if (type === 'dynamics') {
-            // Берем последние 3 месяца для примера
-            const to = new Date().toISOString().split('T')[0];
-            const from = new Date();
-            from.setMonth(from.getMonth() - 3);
-            await getDynamicsAnalysis(phrase, 'monthly', from.toISOString().split('T')[0], to);
-        }
-
-        // 3. Вызываем твой готовый экспорт (он возьмет данные из lastAnalysisResults)
-        downloadExcel();
-    } catch (e) {
-        alert("Не удалось восстановить данные для скачивания.");
-    }
 }
 
 

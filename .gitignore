@@ -5,4 +5,9 @@ __pycache__/
 .*
  
 !.gitignore
+!.gitattributes
 !.env_example
+
+# Локальные тесты не коммитим в общую ветку (остаются только у вас на диске)
+tests/
+pytest.ini
