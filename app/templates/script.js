@@ -42,6 +42,8 @@ function toggleExtraOptions() {
 }
 
 let lastAnalysisResults = null; // Буфер для Excel
+let lastAnalysisType = null;    // Тип последнего анализа для корректной выгрузки
+let lastAnalysisGroupId = null; // group_id последнего анализа
 
 /** Показать в шапке «Вход» или «Выйти» в зависимости от localStorage (после F5 токен остаётся). */
 function syncAuthNav() {
@@ -205,6 +207,7 @@ function updateDateConstraints() {
 
 async function runAnalysis() {
     try {
+        lastAnalysisGroupId = null;
         const phraseInput = document.getElementById('query-input');
         const phrase = phraseInput.value.trim();
         const typeSelect = document.getElementById('query-type');
@@ -217,7 +220,8 @@ async function runAnalysis() {
 
         // 1. СОБИРАЕМ РЕГИОНЫ (ID из чекбоксов)
         const selectedRegions = Array.from(document.querySelectorAll('.region-checkbox:checked'))
-            .map(cb => parseInt(cb.value));
+            .map(cb => Number.parseInt(cb.value, 10))
+            .filter(Number.isInteger);
 
         // 2. СОБИРАЕМ УСТРОЙСТВА (Конвертируем текст чипов в ID для бэкенда)
         // 1: Desktop, 2: Mobile, 3: Tablet, 4: All
@@ -360,9 +364,15 @@ async function downloadFromHistory(groupId, type) {
         return;
     }
 
+    const normalizedType = ({
+        top: 'Топ запросов',
+        dynamics: 'Динамика',
+        regions: 'Регионы'
+    })[String(type || '').toLowerCase()] || type;
+
     try {
         const response = await fetch(
-            `/wordstat/history/group/${encodeURIComponent(groupId)}/download?type=${encodeURIComponent(type)}`,
+            `/wordstat/history/group/${encodeURIComponent(groupId)}/download?type=${encodeURIComponent(normalizedType)}`,
             {
                 method: 'GET',
                 headers: {
@@ -385,7 +395,7 @@ async function downloadFromHistory(groupId, type) {
 
         const a = document.createElement('a');
         a.href = url;
-        a.download = `report_${type}_${groupId}.xlsx`;
+        a.download = `report_${String(normalizedType).replace(/\s+/g, '_')}_${groupId}.xlsx`;
         document.body.appendChild(a);
         a.click();
 
@@ -426,19 +436,28 @@ async function getDynamicsAnalysis(inputPhrase, periodType, dateFrom, dateTo, re
         const result = await response.json();
 
         if (response.ok) {
+            lastAnalysisGroupId = result.group_id || null;
             const by = result.by_phrase || {};
             if (Object.keys(by).length === 0 && result.data && phrases.length === 1) {
                 allResults[phrases[0]] = {
-                    dynamics: result.data.dynamics || result.data.points || [],
-                    period: periodType
+                    status: result.status,
+                    group_id: result.group_id,
+                    data: {
+                        dynamics: result.data.dynamics || result.data.points || [],
+                        period: periodType
+                    }
                 };
             } else {
                 for (const p of phrases) {
                     const block = by[p];
                     if (block) {
                         allResults[p] = {
-                            dynamics: block.dynamics || block.points || [],
-                            period: periodType
+                            status: result.status,
+                            group_id: result.group_id,
+                            data: {
+                                dynamics: block.dynamics || block.points || [],
+                                period: periodType
+                            }
                         };
                     }
                 }
@@ -484,6 +503,13 @@ async function renderMultipleResults(results, type) {
     if (!container) return;
     container.innerHTML = '';
     lastAnalysisResults = results;
+    lastAnalysisType = type;
+    if (!lastAnalysisGroupId) {
+        const firstResponse = Object.values(results)[0];
+        if (firstResponse && firstResponse.group_id) {
+            lastAnalysisGroupId = firstResponse.group_id;
+        }
+    }
 
     // Очистка старых графиков, если они были
     if (window.activeCharts) {
@@ -593,25 +619,31 @@ async function renderMultipleResults(results, type) {
             }, 100);
         }
         else if (type === 'regions') {
-            const mapWrapper = document.createElement('div');
-            mapWrapper.id = `map-container-${index}`;
-            mapWrapper.style.width = '100%';
-            mapWrapper.style.height = '400px';
-            mapWrapper.style.marginBottom = '20px';
-            section.appendChild(mapWrapper);
+            const currentRegionType = (document.getElementById('region-type-select')?.value || '').toLowerCase();
+            const responseRegionType = (response.region_type || '').toLowerCase();
+            const isCityDetails = responseRegionType === 'cities' || currentRegionType === 'cities';
+            if (!isCityDetails) {
+                const mapWrapper = document.createElement('div');
+                mapWrapper.id = `map-container-${index}`;
+                mapWrapper.style.width = '100%';
+                mapWrapper.style.height = '400px';
+                mapWrapper.style.marginBottom = '20px';
+                section.appendChild(mapWrapper);
 
-            setTimeout(() => {
-                renderRegionHeatmap(`map-container-${index}`, items);
-            }, 200);
+                setTimeout(() => {
+                    renderRegionHeatmap(`map-container-${index}`, items);
+                }, 200);
+            }
 
             thead.innerHTML = `
                 <tr>
-                    <th>Регион/Город</th>
+                    <th>${isCityDetails ? 'Город' : 'Регион/Город'}</th>
                     <th>Запросы</th>
                     <th>Доля %</th>
                     <th>Affinity</th>
                 </tr>`;
-            const top20 = items.slice(0, 20);
+            const sortedItems = [...items].sort((a, b) => (b.count || b.value || 0) - (a.count || a.value || 0));
+            const top20 = sortedItems.slice(0, 20);
             tbody.innerHTML = top20.map(i => `
                 <tr>
                     <td>${i.name || i.regionName || 'Регион ' + (i.regionId || '---')}</td>
@@ -772,11 +804,12 @@ async function getTopRequests(inputPhrase, regions, devices) {
             const det = result.detail;
             const msg = typeof det === 'object' && det && det.phrase
                 ? `Ошибка для «${det.phrase}»: ${JSON.stringify(det.yandex || det)}`
-                : (det || 'Ошибка запроса');
+                : (typeof det === 'object' ? JSON.stringify(det) : (det || 'Ошибка запроса'));
             console.error(msg);
             alert(msg);
             return;
         }
+        lastAnalysisGroupId = result.group_id || null;
         const by = result.by_phrase || {};
         if (Object.keys(by).length === 0 && result.data && phrases.length === 1) {
             allResults[phrases[0]] = {
@@ -833,12 +866,23 @@ async function getRegionsAnalysis(inputPhrase, regionType, devices) {
             alert(result.detail ? JSON.stringify(result.detail) : 'Ошибка регионов');
             return;
         }
+        lastAnalysisGroupId = result.group_id || null;
         const by = result.by_phrase || {};
         if (Object.keys(by).length === 0 && result.data && phrases.length === 1) {
-            allResults[phrases[0]] = result.data;
+            allResults[phrases[0]] = {
+                status: result.status,
+                group_id: result.group_id,
+                data: result.data
+            };
         } else {
             for (const p of phrases) {
-                if (by[p]) allResults[p] = by[p];
+                if (by[p]) {
+                    allResults[p] = {
+                        status: result.status,
+                        group_id: result.group_id,
+                        data: by[p]
+                    };
+                }
             }
         }
     } catch (err) {
@@ -948,6 +992,14 @@ async function registerUser() {
 function downloadExcel() {
     if (!lastAnalysisResults || Object.keys(lastAnalysisResults).length === 0) {
         return alert("Нет данных для выгрузки");
+    }
+
+    // Для top/dynamics есть server-side Excel по group_id: это надежнее, чем client-side сборка.
+    const firstEntry = Object.values(lastAnalysisResults)[0];
+    const groupId = lastAnalysisGroupId || (firstEntry && firstEntry.group_id);
+    if (groupId && (lastAnalysisType === 'top' || lastAnalysisType === 'dynamics' || lastAnalysisType === 'regions')) {
+        downloadFromHistory(groupId, lastAnalysisType);
+        return;
     }
 
     const wb = XLSX.utils.book_new();
